@@ -1,4 +1,4 @@
-import pandas as pd
+from pandas import pandas as pd
 from datetime import datetime
 from pprint import pprint
 from feast import FeatureStore
@@ -20,4 +20,4 @@ feature_vector = store.get_online_features(
 pprint(feature_vector)
 
 pd.read_parquet("feast_repo/data/driver_stats.parquet") #anche con la demo è vuoto, vedere come riempire
-print("forte")
+print("-------------------------")
