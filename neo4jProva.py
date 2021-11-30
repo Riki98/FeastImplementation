@@ -1,83 +1,127 @@
 from neo4j import GraphDatabase
 
+#######################################
+# gn: Graph Name
+# ps: Property String
+# r: relationship
+# l: list of
+
+gn_Actor = "Actor"
+gn_Keyword = "Keyword"
+gn_Movie = "Movie"
+gn_Director = "Director"
+
+ps_id = "id"
+ps_likes = "likes"
+ps_embeddings = "embeddings"
+ps_aspect_ratio = "aspect_ratio"
+ps_budget = "budget"
+ps_cast_tot_likes = "cast_total_facebook_likes"
+ps_color = "color"
+ps_content_rating = "content_rating"
+ps_duration = "duration"
+ps_face_poster = "facenumber_in_poster"
+ps_genre = "genre"
+ps_gross = "gross"
+ps_imdb_score = "imdb_score"
+ps_language = "language"
+ps_movie_likes = "movie_facebook_likes"
+ps_num_critics = "num_critic_for_reviews"
+ps_user_for_review = "num_user_for_reviews"
+ps_num_voted_users = "num_voted_users"
+ps_title_year = "title_year"
+
+r_performed = "PERFORMED_IN"
+r_inplot = "IN_PLOT_OF"
+r_directed = "DIRECTED_IN"
+
+l_movie = {ps_aspect_ratio, ps_budget, ps_cast_tot_likes, ps_duration, ps_face_poster, ps_genre, ps_gross,
+            ps_imdb_score, ps_movie_likes, ps_num_critics, ps_user_for_review, ps_num_voted_users, ps_title_year}
+l_relationship = {r_performed, r_inplot, r_directed}
+
+lista_movie = "'aspect_ratio', 'budget', 'cast_total_facebook_likes', 'duration', \
+        'facenumber_in_poster', 'genre', 'gross', 'imdb_score', 'movie_facebook_likes', 'num_critic_for_reviews', \
+        'num_user_for_reviews', 'num_voted_users', 'title_year'"
+#######################################
+
+
+
 driver = GraphDatabase.driver("neo4j://localhost:7687", auth=("neo4j", "0000"))
 
-#def add_friend(tx, name, friend_name):
-#    tx.run("MERGE (a:Person {name: $name}) "
-#           "MERGE (a)-[:KNOWS]->(friend:Person {name: $friend_name})",
-#           name=name, friend_name=friend_name)
 
-#def print_friends(tx, name):
-#    for record in tx.run("MATCH (a:Person)-[:KNOWS]->(friend) WHERE a.name = $name "
-#                         "RETURN friend.name ORDER BY friend.name", name=name):
-#        print(record["friend.name"])
+# Creazionde di una proiezione di un grafo
+# controlla come sostituire le parentesi graffe con le quadre nella stringa della query
+# name_proj, graph_name, property_list, relationship_list
+def create_graph_projection():
+    with driver.session() as session:
+        create = (f"""CALL gds.graph.create('actorMovieProjection', {{
+                Actor: {{label: 'Actor', properties:{{ likes:{{ property: 'likes', defaultValue:0.0 }}, 
+                    aspect_ratio:{{ property:'aspect_ratio', defaultValue:0.0  }}, 
+                    budget:{{property:'budget', defaultValue:0}}   }} 
+                    }}, 
+                Movie:{{label: 'Movie', properties: {{likes:{{property: 'likes', defaultValue:0.0}}, 
+                    aspect_ratio:{{property:'aspect_ratio', defaultValue:0.0}}, 
+                    budget:{{property:'budget', defaultValue:0}}  }} 
+                    }}, ['PERFORMED_IN']) 
+            YIELD graphName, nodeCount, relationshipCount, createMillis 
+            RETURN graphName, nodeCount, relationshipCount, createMillis""")
+        result = session.run(create)
+        for line in result:
+            print(line)
 
-#with driver.session() as session:
-#    session.write_transaction(add_friend, "Arthur", "Guinevere")
-#    session.write_transaction(add_friend, "Arthur", "Lancelot")
-#    session.write_transaction(add_friend, "Arthur", "Merlin")
-#    session.read_transaction(print_friends, "Arthur")
-
-
-# FUNZIONA Creazionde di una proiezione di un grafo
-def create_graph_projection(tx, name):
-    create = """
-        CALL gds.graph.create('$name', {Actor: {properties: 'likes'}, Movie: {properties: 'budget'} }, ['PERFORMED_IN'])
-        YIELD graphName, nodeCount, relationshipCount, createMillis
-        RETURN graphName, nodeCount, relationshipCount, createMillis
-    """
-
-    result = tx.run(create)
-    for line in result:
-        print(line)
-
-# Eliminazione della proiezione del grafo in memoria
-def delete_graph(tx, name):
-    drop = """
-        CALL gds.graph.drop('$name')
-    """
-    result = tx.run(drop)
-    for line in result:
-        print(line)
-
+# FUNZIONA Eliminazione della proiezione del grafo in memoria
+def delete_graph_projection(graph_name):
+    with driver.session as session:
+        drop = f"CALL gds.graph.drop('{graph_name}')"
+        result = session.run(drop)
+        for line in result:
+            print(line)
 
 # Train per graphSage
-def train_graphSage(tx):
-    q_train = """
-        CALL gds.beta.graphSage.train($nome, {modelName:'esempioTrainModel', degreeAsProperty:true})
-    """
-    result=tx.run(q_train)
+# graph_name
+def train_graphSage():
+    with driver.session() as session:
+        q_train = f"CALL gds.beta.graphSage.train('actorMovieProjection', {{modelName:'esempioTrainModel', featureProperty:['likes', 'aspect_property', 'budget']}})"
+        result=session.run(q_train)
+        print("TRAIN GRAPHSAGE ESEGUITO \n")
+        print(result)
+        print("\n\n\n\n")
 
 # Stream per graphSage
-def stream_graphSage(tx):
-    q_stream = """
-        CALL gds.beta.graphSage.stream($nome, {modelName:'esempioTrainModel'})
-    """
-    result=tx.run(q_stream)
+def stream_graphSage():
+    with driver.session() as session:
+        q_stream = f"CALL gds.beta.graphSage.stream('actorProjection', {{modelName:'esempioTrainModel'}})"
+        result=session.run(q_stream)
+        print("STREAM GRAPHSAGE ESEGUITO \n")
+        print(result)
+        print("\n\n\n\n")
 
 # Write per graphSage
-def write_graphSage(tx):
-    q_write = """
-        CALL gds.beta.graphSage.train($nome, {modelName:'esempioTrainModel', degreeAsProperty:true})
-    """
-    result=tx.run(q_write)
+def write_graphSage():
+    with driver.session() as session:
+        q_write = f"""
+            CALL gds.beta.graphSage.train('actorProjection', {{modelName:'esempioTrainModel', degreeAsProperty:true}})
+        """
+        result=session.run(q_write)
+        print("WRITE GRAPHSAGE ESEGUITO \n")
+        print(result.graph)
+        print("\n\n\n\n")
 
 
 
-def prova(tx):
+create_graph_projection()
+#train_graphSage()
+#stream_graphSage()
+#write_graphSage()
+
+
+
+def read_graph(tx, graph_name):
     persone = []
-    ris = tx.run("MATCH (a:Person) RETURN a.name")
+    ris = tx.run(f"MATCH (a:{graph_name}) RETURN a.id")
     for result in ris:
         persone.append(result)
     return persone
-
-
-with driver.session() as session:
-    name = 'grafoProva'
-    res = session.read_transaction(prova)
-    
-    for persone in res:
-        print(type(res))
 
 
 driver.close()
