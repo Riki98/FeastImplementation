@@ -5,6 +5,7 @@ import altair as alt
 import pandas as pd
 import math
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 #######################################
 # gn: Graph Name
@@ -152,6 +153,7 @@ def write_graphSage():
 ########################## IMPORT AND SHOWING DATAS FROM NEO4J ##########################
 def reading_datas():
     with driver.session() as session:
+        # WHERE m.id = 'Pirates of the Caribbean: On Stranger Tides '
         result = session.run("""
         MATCH (p:Actor)-[:PERFORMED_IN]->(m:Movie)
         WHERE m.id = 'Pirates of the Caribbean: On Stranger Tides '
@@ -195,45 +197,63 @@ def reading_datas():
 
         # Riduzione dimensionale con TSNE ----> FILM
         mov_embedded = TSNE(n_components=2, random_state=6).fit_transform(embeddings_mov)
+        #print("\n\n")
+        #print("EMBEDDINGS FILM:")
+        #print(mov_embedded)
+        #print("\n\n")
+
+        act_embedded_param = TSNE(n_components=2, random_state=6).get_params(embeddings_act.all())
         print("\n\n")
-        print("EMBEDDINGS FILM:")
-        print(mov_embedded)
+        print("EMBEDDINGS GET PARAM:")
+        print(act_embedded)
         print("\n\n")
+    
+
+        #df_actors = pd.DataFrame(data = {
+        #    "actor": actorName,
+        #    "movie": movieName,
+        #    "x": [value[0] for value in act_embedded],
+        #    "y": [value[1] for value in mov_embedded]
+        #})
+
+        #df_movie = pd.DataFrame(data = {
+        #    "movie": movieName,
+        #    "actor": actorName,
+        #    "x": [value[0] for value in mov_embedded],
+        #    "y": [value[1] for value in act_embedded]
+        #})
+
+        #print("\n\nDATAFRAME ACTOR MOVIE")
+        #print(df)
+        #print("\n\n")
+        
+        #plt.scatter(df_actors.x, df_actors.y, label="actor_movie", color="green")
+        #plt.legend()
+        
+
+        #plt.scatter(df_actors.x, df_actors.y, alpha=0.150, color="green")
+        #plt.scatter(df_movie.x, df_movie.y, alpha=0.150, color="red")
+        #plt.show()
+        palette = sns.color_palette("bright", 10)
 
 
-        df = pd.DataFrame(data = {
-            "actor": actorName,
-            "movie": movieName,
-            "x": [value[0] for value in act_embedded],
-            "y": [value[1] for value in mov_embedded]
-        })
-
-        print("\n\nDATAFRAME ACTOR MOVIE")
-        print(df)
-        print("\n\n")
-
-        plt.scatter(df.x, df.y)
-        plt.show()
-
-        #alt.Chart(df).mark_circle(size=60).encode(
-            #x='x',
-            #y='y',
-            #color='Actor',
-            #tooltip=['actor', 'movie']
-        #).properties(width=700, height=400)
 
         
 
-reading_datas()
 
 
+################################ MAIN #################################
 
-#create_graph_projection()
-#train_graphSage()
-#stream_graphSage()
-#write_graphSage()
+def main():
+   #with driver.session as session:
+    #session.read_transaction(create_graph_projection)
+    reading_datas()
+    #train_graphSage()
+    #stream_graphSage()
+    #write_graphSage() 
+
+    driver.close()
 
 
-
-
-driver.close()
+if __name__ == "__main__":
+    main()
