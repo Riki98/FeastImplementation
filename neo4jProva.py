@@ -1,4 +1,5 @@
 from neo4j import GraphDatabase
+from neo4j.work import result
 from numpy.core.fromnumeric import shape
 from sklearn.manifold import TSNE
 import numpy as np
@@ -56,49 +57,76 @@ lista_movie = "'aspect_ratio', 'budget', 'cast_total_facebook_likes', 'duration'
 driver = GraphDatabase.driver("neo4j://localhost:7687", auth=("neo4j", "0000"))
 
 
-# Creazionde di una proiezione di un grafo
+# FUNZIONA
+# Creazione di una proiezione di un grafo
 # controlla come sostituire le parentesi graffe con le quadre nella stringa della query
 # name_proj, graph_name, property_list, relationship_list
 def create_graph_projection(tx):
     with driver.session() as session:
-        create = ("""CALL gds.graph.create('actorMovieProjection', {
-                Actor: {label: 'Actor', properties:{
-                    born:{ property: 'likes', defaultValue:0.0 }, 
-                    aspect_ratio:{ property:'aspect_ratio', defaultValue:0.0  },    
-                    budget:{property:'budget', defaultValue:0.0},
-                    cast_total_facebook_likes:{property:'cast_total_facebook_likes', defaultValue:0.0},
-                    duration:{property:'duration', defaultValue:0.0},   
-                    facenumber_in_poster:{property:'facenumber_in_poster', defaultValue:0.0},   
-                    genre:{property:'genre', defaultValue:0.0},   
-                    gross:{property:'gross', defaultValue:0.0},   
-                    imdb_score:{property:'imdb_score', defaultValue:0.0},   
-                    movie_facebook_likes:{property:'movie_facebook_likes', defaultValue:0.0},   
-                    num_critic_for_reviews:{property:'num_critic_for_reviews', defaultValue:0.0},   
-                    num_user_for_reviews:{property:'num_user_for_reviews', defaultValue:0.0},   
-                    num_voted_users:{property:'num_voted_users', defaultValue:0.0},   
-                    title_year:{property:'title_year', defaultValue:0.0}
-                    } 
-                    }, 
-                Movie:{label: 'Movie', properties: { 
-                    born:{ property: 'likes', defaultValue:0.0 }, 
-                    aspect_ratio:{ property:'aspect_ratio', defaultValue:0.0  },    
-                    budget:{property:'budget', defaultValue:0.0},
-                    cast_total_facebook_likes:{property:'cast_total_facebook_likes', defaultValue:0.0},
-                    duration:{property:'duration', defaultValue:0.0},   
-                    facenumber_in_poster:{property:'facenumber_in_poster', defaultValue:0.0},   
-                    genre:{property:'genre', defaultValue:0.0},   
-                    gross:{property:'gross', defaultValue:0.0},   
-                    imdb_score:{property:'imdb_score', defaultValue:0.0},   
-                    movie_facebook_likes:{property:'movie_facebook_likes', defaultValue:0.0},   
-                    num_critic_for_reviews:{property:'num_critic_for_reviews', defaultValue:0.0},   
-                    num_user_for_reviews:{property:'num_user_for_reviews', defaultValue:0.0},   
-                    num_voted_users:{property:'num_voted_users', defaultValue:0.0},   
-                    title_year:{property:'title_year', defaultValue:0.0}  
-                    } 
-                    }
-                    }, ['PERFORMED_IN']) 
-                YIELD graphName, nodeCount, relationshipCount, createMillis 
-                RETURN graphName, nodeCount, relationshipCount, createMillis
+        create = ("""CALL gds.graph.create('dbProjection', {
+    Actor: {label: 'Actor', 
+        properties: { 
+            likes:{ property: 'act_likes', defaultValue:0.0 }, 
+            aspect_ratio:{ property:'aspect_ratio', defaultValue:0.0  },    
+            budget:{property:'budget', defaultValue:0.0},
+            cast_total_facebook_likes:{property:'cast_total_facebook_likes', defaultValue:0.0},
+            duration:{property:'duration', defaultValue:0.0},   
+            facenumber_in_poster:{property:'facenumber_in_poster', defaultValue:0.0},   
+            genre:{property:'genre', defaultValue:0.0},   
+            gross:{property:'gross', defaultValue:0.0},   
+            imdb_score:{property:'imdb_score', defaultValue:0.0},   
+            movie_facebook_likes:{property:'movie_facebook_likes', defaultValue:0.0},   
+            num_critic_for_reviews:{property:'num_critic_for_reviews', defaultValue:0.0},   
+            num_user_for_reviews:{property:'num_user_for_reviews', defaultValue:0.0},   
+            num_voted_users:{property:'num_voted_users', defaultValue:0.0},   
+            title_year:{property:'title_year', defaultValue:0.0}
+            likes:{ property: 'dir_likes', defaultValue:0.0 }, 
+        }  
+    }, 
+    Movie:{label: 'Movie', 
+        properties: { 
+            likes:{ property: 'act_likes', defaultValue:0.0 }, 
+            aspect_ratio:{ property:'aspect_ratio', defaultValue:0.0  },    
+            budget:{property:'budget', defaultValue:0.0},
+            cast_total_facebook_likes:{property:'cast_total_facebook_likes', defaultValue:0.0},
+            duration:{property:'duration', defaultValue:0.0},   
+            facenumber_in_poster:{property:'facenumber_in_poster', defaultValue:0.0},   
+            genre:{property:'genre', defaultValue:0.0},   
+            gross:{property:'gross', defaultValue:0.0},   
+            imdb_score:{property:'imdb_score', defaultValue:0.0},   
+            movie_facebook_likes:{property:'movie_facebook_likes', defaultValue:0.0},   
+            num_critic_for_reviews:{property:'num_critic_for_reviews', defaultValue:0.0},   
+            num_user_for_reviews:{property:'num_user_for_reviews', defaultValue:0.0},   
+            num_voted_users:{property:'num_voted_users', defaultValue:0.0},   
+            title_year:{property:'title_year', defaultValue:0.0}
+            likes:{ property: 'dir_likes', defaultValue:0.0 }, 
+        } 
+    }, 
+    Director:{label: 'Director', 
+        properties: { 
+            likes:{ property: 'act_likes', defaultValue:0.0 }, 
+            aspect_ratio:{ property:'aspect_ratio', defaultValue:0.0  },    
+            budget:{property:'budget', defaultValue:0.0},
+            cast_total_facebook_likes:{property:'cast_total_facebook_likes', defaultValue:0.0},
+            duration:{property:'duration', defaultValue:0.0},   
+            facenumber_in_poster:{property:'facenumber_in_poster', defaultValue:0.0},   
+            genre:{property:'genre', defaultValue:0.0},   
+            gross:{property:'gross', defaultValue:0.0},   
+            imdb_score:{property:'imdb_score', defaultValue:0.0},   
+            movie_facebook_likes:{property:'movie_facebook_likes', defaultValue:0.0},   
+            num_critic_for_reviews:{property:'num_critic_for_reviews', defaultValue:0.0},   
+            num_user_for_reviews:{property:'num_user_for_reviews', defaultValue:0.0},   
+            num_voted_users:{property:'num_voted_users', defaultValue:0.0},   
+            title_year:{property:'title_year', defaultValue:0.0}
+            likes:{ property: 'dir_likes', defaultValue:0.0 }, 
+        } 
+    }
+},
+{DIRECTED_IN: {orientation: 'UNDIRECTED'}, 
+PERFORMED_IN: {orientation: 'UNDIRECTED'}}
+) 
+YIELD graphName, nodeCount, relationshipCount, createMillis 
+RETURN graphName, nodeCount, relationshipCount, createMillis
                 """)
         result = tx.run(create)
         print(result)
@@ -116,7 +144,7 @@ def delete_graph_projection(graph_name):
 
 
 
-##################### GRAPH SAGE (gds v. 1.5) ###########################
+################################# GRAPH SAGE (gds v. 1.5) #######################################
 # Train per graphSage
 def train_graphSage():
     with driver.session() as session:
@@ -149,12 +177,9 @@ def write_graphSage():
         print("\n\n")
 
 
-
-
-########################## IMPORT AND PLOTTING EMBEDDINGS FROM NEO4J ##########################
-def reading_datas():
+# Import and plot degli embedding graphSage
+def read_graph_sage():
     with driver.session() as session:
-        # WHERE m.id = 'Pirates of the Caribbean: On Stranger Tides '
         result_act = session.run("""
         MATCH (p:Actor)-[:PERFORMED_IN]->(m:Movie)
         WITH DISTINCT p
@@ -177,48 +202,109 @@ def reading_datas():
             embeddingsM.append(np.array(record["embeddingMovie"]))
             movieName.append(record["movieName"])
         
-
-
         #creo 
         embeddings_act = (np.stack(embeddingsA, 0))
         embeddings_mov = (np.stack(embeddingsM, 0))
-
-        #embeddings_act = np.unique(embeddings_act, axis=0)
-        #embeddings_mov = np.unique(embeddings_mov, axis=0)
-        #print(embeddings_mov.shape)
-
+        
         # Riduzione dimensionale con TSNE ----> ATTORI
-        act_embedded = TSNE(n_components=3, random_state=6).fit_transform(embeddings_act)
-        print(act_embedded.shape)
-        #print("\n\nEMBEDDINGS ATTORI:")
-        #print(act_embedded)
-        #print("\n\n")
+        act_embedded = TSNE(n_components=2, random_state=6).fit_transform(embeddings_act)
 
         # Riduzione dimensionale con TSNE ----> FILM
-        mov_embedded = TSNE(n_components=3, random_state=6).fit_transform(embeddings_mov)
-        print(mov_embedded.shape)
-        #print("\n\nEMBEDDINGS FILM:")
-        #print(mov_embedded)
-        #print("\n\n")
-    
+        mov_embedded = TSNE(n_components=2, random_state=6).fit_transform(embeddings_mov)
 
-        #df_actors = pd.DataFrame(data = {
-        #    "actor": actorName,
-        #    "x": [value[0] for value in act_embedded],
-        #    "y": [value[1] for value in act_embedded],
-        #    "z": [value[2] for value in act_embedded]
-        #})
-
-        #df_movie = pd.DataFrame(data = {
-        #    "movie": movieName,
-        #    "x": [value[0] for value in mov_embedded],
-        #    "y": [value[1] for value in mov_embedded], 
-        #    "z": [value[2] for value in mov_embedded]
-        #})
-        
+        #plot
         figure1 = plt.scatter(act_embedded[:,0], act_embedded[:,1], act_embedded[:,2], color="green")
         figure2 = plt.scatter(mov_embedded[:,0], mov_embedded[:,1], mov_embedded[:,2], color="red")
-        plt.legend()
+        plt.show()
+
+
+
+###################################### FAST RP (gds v. 1.5)  ######################################
+# Stima della memoria per FastRP
+def memory_estimation():
+    with driver.session() as session:
+        q_mem = """CALL gds.fastRP.stream.estimate('dbProjection', {embeddingDimension: 128})
+                    YIELD nodeCount, relationshipCount, bytesMin, bytesMax, requiredMemory"""
+        result = session.run(q_mem)
+        for ris in result:
+            print(ris)
+        node_cnt, rel_cnt, b_min, b_min, req = 0
+        
+
+# Stream per FastRP
+def stream_fastRP():
+    with driver.session() as session:
+        q_stream = "call gds.beta.graphSage.stream('dbProjection', {embeddingDimension:64})"
+        result=session.run(q_stream)
+        print("STREAM FASTRP ESEGUITO \n")
+        print(result)
+        print("\n\n")
+
+# Write per FastRP
+def write_fastRp():
+    with driver.session() as session:
+        q_write = """
+            CALL gds.fastRP.write('dbProjection', {embeddingDimension:64, writeProperty:'fastrp_embedding'})
+        """
+        result=session.run(q_write)
+        print("WRITE FASTRP ESEGUITO \n")
+        print(result)
+        print("\n\n")
+
+# Import and plot degli embedding graphSage
+def read_fastrp():
+    with driver.session() as session:
+        result_act = session.run("""
+        MATCH (p:Actor)
+        WITH DISTINCT p
+        RETURN p.id AS actorName, p.fastrp_embedding AS embeddingActor
+        """)
+        result_mov = session.run("""
+        MATCH (p:Movie)
+        WITH DISTINCT p
+        RETURN p.id AS movieName, p.fastrp_embedding AS embeddingMovie
+        """)
+        result_dir = session.run("""
+        MATCH (p:Director)
+        WITH DISTINCT p
+        RETURN p.id AS directorName, p.fastrp_embedding AS embeddingDirector
+        """)
+        actorName = []
+        embeddingsA = []
+        movieName = []
+        embeddingsM = []
+        directorName = []
+        embeddingsD = []
+        for record in result_act:
+            actorName.append(record["actorName"])
+            embeddingsA.append(np.array(record["embeddingActor"]))
+
+        for record in result_mov:
+            embeddingsM.append(np.array(record["embeddingMovie"]))
+            movieName.append(record["movieName"])
+
+        for record in result_dir:
+            embeddingsD.append(np.array(record["embeddingDirector"]))
+            directorName.append(record["directorName"])
+        
+        #creo 
+        embeddings_act = (np.stack(embeddingsA, 0))
+        embeddings_mov = (np.stack(embeddingsM, 0))
+        embeddings_dir = (np.stack(embeddingsD, 0))
+        
+        # Riduzione dimensionale con TSNE ----> ATTORI
+        act_embedded = TSNE(n_components=2, random_state=6).fit_transform(embeddings_act)
+
+        # Riduzione dimensionale con TSNE ----> FILM
+        mov_embedded = TSNE(n_components=2, random_state=6).fit_transform(embeddings_mov)
+
+        # Riduzione dimensionale con TSNE ----> DIRETTORI
+        dir_embedded = TSNE(n_components=2, random_state=6).fit_transform(embeddings_dir)
+
+        #plot
+        figure1 = plt.scatter(act_embedded[:,0], act_embedded[:,1], color="green")
+        figure2 = plt.scatter(mov_embedded[:,0], mov_embedded[:,1], color="red")
+        firgure3 = plt.scatter(dir_embedded[:,0], dir_embedded[:,1], color="blue")
         plt.show()
 
 
@@ -226,10 +312,13 @@ def reading_datas():
 ################################ MAIN #################################
 
 if __name__ == "__main__":
-    #with driver.session() as session:
-    #session.read_transaction(create_graph_projection)
-    #train_graphSage()
-    #stream_graphSage()
-    #write_graphSage() 
-    reading_datas()
+    with driver.session() as session:
+        #session.read_transaction(create_graph_projection)
+        #train_graphSage()
+        #stream_graphSage()
+        #write_graphSage() 
+        #read_graph_sage()
+        #session.read_transaction(memory_estimation())
+        #session.write_transaction(write_fastRp())
+        read_fastrp()
     driver.close()
