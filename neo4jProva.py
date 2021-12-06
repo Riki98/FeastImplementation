@@ -1,4 +1,5 @@
 from neo4j import GraphDatabase
+from numpy.core.fromnumeric import shape
 from sklearn.manifold import TSNE
 import numpy as np
 import altair as alt
@@ -61,7 +62,7 @@ driver = GraphDatabase.driver("neo4j://localhost:7687", auth=("neo4j", "0000"))
 def create_graph_projection(tx):
     with driver.session() as session:
         create = ("""CALL gds.graph.create('actorMovieProjection', {
-                Person: {label: 'Actor', properties:{
+                Actor: {label: 'Actor', properties:{
                     born:{ property: 'likes', defaultValue:0.0 }, 
                     aspect_ratio:{ property:'aspect_ratio', defaultValue:0.0  },    
                     budget:{property:'budget', defaultValue:0.0},
@@ -150,110 +151,85 @@ def write_graphSage():
 
 
 
-########################## IMPORT AND SHOWING DATAS FROM NEO4J ##########################
+########################## IMPORT AND PLOTTING EMBEDDINGS FROM NEO4J ##########################
 def reading_datas():
     with driver.session() as session:
         # WHERE m.id = 'Pirates of the Caribbean: On Stranger Tides '
-        result = session.run("""
+        result_act = session.run("""
         MATCH (p:Actor)-[:PERFORMED_IN]->(m:Movie)
-        WHERE m.id = 'Pirates of the Caribbean: On Stranger Tides '
-        RETURN p.id AS actorName, p.embedding AS embeddingActor, m.embedding as embeddingMovie, m.id AS movieName
+        WITH DISTINCT p
+        RETURN p.id AS actorName, p.embedding AS embeddingActor
+        """)
+        result_mov = session.run("""
+        MATCH (p:Actor)-[:PERFORMED_IN]->(m:Movie)
+        WITH DISTINCT m
+        RETURN m.id AS movieName, m.embedding AS embeddingMovie
         """)
         actorName = []
         embeddingsA = []
         embeddingsM = []
         movieName = []
-        for record in result:
+        for record in result_act:
             actorName.append(record["actorName"])
             embeddingsA.append(np.array(record["embeddingActor"]))
+
+        for record in result_mov:
             embeddingsM.append(np.array(record["embeddingMovie"]))
             movieName.append(record["movieName"])
+        
 
-
-        #creo dataframe completo di attori, film in cui hanno recitato e tutti e due gli ambeddings corrispondenti
-        #df_actors_movie = pd.DataFrame.from_dict({"actorName": actorName, "embeddingsA": embeddingsA, "embeddingsM": embeddingsM, "movieName": movieName})
-        #print(df_actors)
-
-        #concateno le due liste di embeddings
-        #x = np.concatenate((np.stack(df_actors_movie["embeddingsA"].to_numpy(), 0), np.stack(df_actors_movie["embeddingsM"].to_numpy(), 0)), 0)
-        #print("\n\n")
-        #print((np.stack(df_actors_movie["embeddingsA"].to_numpy(), 0)))
 
         #creo 
         embeddings_act = (np.stack(embeddingsA, 0))
         embeddings_mov = (np.stack(embeddingsM, 0))
 
-
-        print("\n\nMovie name:")
-        print(movieName)
-        print("\n\n")
+        #embeddings_act = np.unique(embeddings_act, axis=0)
+        #embeddings_mov = np.unique(embeddings_mov, axis=0)
+        #print(embeddings_mov.shape)
 
         # Riduzione dimensionale con TSNE ----> ATTORI
-        act_embedded = TSNE(n_components=2, random_state=6).fit_transform(embeddings_act)
-        print("\n\n")
-        print("EMBEDDINGS ATTORI:")
-        print(act_embedded)
-        print("\n\n")
+        act_embedded = TSNE(n_components=3, random_state=6).fit_transform(embeddings_act)
+        print(act_embedded.shape)
+        #print("\n\nEMBEDDINGS ATTORI:")
+        #print(act_embedded)
+        #print("\n\n")
 
         # Riduzione dimensionale con TSNE ----> FILM
-        mov_embedded = TSNE(n_components=2, random_state=6).fit_transform(embeddings_mov)
-        #print("\n\n")
-        #print("EMBEDDINGS FILM:")
+        mov_embedded = TSNE(n_components=3, random_state=6).fit_transform(embeddings_mov)
+        print(mov_embedded.shape)
+        #print("\n\nEMBEDDINGS FILM:")
         #print(mov_embedded)
         #print("\n\n")
-
-        act_embedded_param = TSNE(n_components=2, random_state=6).get_params(embeddings_act.all())
-        print("\n\n")
-        print("EMBEDDINGS GET PARAM:")
-        print(act_embedded)
-        print("\n\n")
     
 
         #df_actors = pd.DataFrame(data = {
         #    "actor": actorName,
-        #    "movie": movieName,
         #    "x": [value[0] for value in act_embedded],
-        #    "y": [value[1] for value in mov_embedded]
+        #    "y": [value[1] for value in act_embedded],
+        #    "z": [value[2] for value in act_embedded]
         #})
 
         #df_movie = pd.DataFrame(data = {
         #    "movie": movieName,
-        #    "actor": actorName,
         #    "x": [value[0] for value in mov_embedded],
-        #    "y": [value[1] for value in act_embedded]
+        #    "y": [value[1] for value in mov_embedded], 
+        #    "z": [value[2] for value in mov_embedded]
         #})
-
-        #print("\n\nDATAFRAME ACTOR MOVIE")
-        #print(df)
-        #print("\n\n")
         
-        #plt.scatter(df_actors.x, df_actors.y, label="actor_movie", color="green")
-        #plt.legend()
-        
-
-        #plt.scatter(df_actors.x, df_actors.y, alpha=0.150, color="green")
-        #plt.scatter(df_movie.x, df_movie.y, alpha=0.150, color="red")
-        #plt.show()
-        palette = sns.color_palette("bright", 10)
-
-
-
-        
+        figure1 = plt.scatter(act_embedded[:,0], act_embedded[:,1], act_embedded[:,2], color="green")
+        figure2 = plt.scatter(mov_embedded[:,0], mov_embedded[:,1], mov_embedded[:,2], color="red")
+        plt.legend()
+        plt.show()
 
 
 
 ################################ MAIN #################################
 
-def main():
-   #with driver.session as session:
+if __name__ == "__main__":
+    #with driver.session() as session:
     #session.read_transaction(create_graph_projection)
-    reading_datas()
     #train_graphSage()
     #stream_graphSage()
     #write_graphSage() 
-
+    reading_datas()
     driver.close()
-
-
-if __name__ == "__main__":
-    main()
