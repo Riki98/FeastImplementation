@@ -65,7 +65,7 @@ def get_actors():
         result_act = session.run("""
         MATCH (p:Actor)
         WITH DISTINCT p
-        RETURN p.id AS actorName, p.embedding AS embeddingActor
+        RETURN p.id AS actorName, p.graphsage_embedding AS embeddingActor
         """)
         actorName = []
         embeddingsA = []
@@ -82,7 +82,7 @@ def get_movies():
         result_mov = session.run("""
         MATCH (p:Movie)
         WITH DISTINCT p
-        RETURN p.id AS movieName, p.embedding AS embeddingMovie
+        RETURN p.id AS movieName, p.graphsage_embedding AS embeddingMovie
         """)
         for record in result_mov:
             embeddingsM.append(np.array(record["embeddingMovie"]))
@@ -97,7 +97,7 @@ def get_directors() :
         result_dir = session.run("""
         MATCH (p:Director)
         WITH DISTINCT p
-        RETURN p.id AS directorName, p.embedding AS embeddingDirector
+        RETURN p.id AS directorName, p.graphsage_embedding AS embeddingDirector
         """)
         for record in result_dir:
             embeddingsD.append(np.array(record["embeddingDirector"]))
@@ -155,8 +155,7 @@ def create_graph_projection_graphsage(tx):
         create = ("""CALL gds.graph.create('dbProjection', {
     Actor: {label: 'Actor', 
         properties: { 
-            act_likes:{ property: 'likes', defaultValue:0.0 }, 
-            aspect_ratio:{ property:'aspect_ratio', defaultValue:0.0  },    
+            act_likes:{ property: 'likes', defaultValue:0.0 },    
             budget:{property:'budget', defaultValue:0.0},
             cast_total_facebook_likes:{property:'cast_total_facebook_likes', defaultValue:0.0},
             duration:{property:'duration', defaultValue:0.0},   
@@ -175,7 +174,6 @@ def create_graph_projection_graphsage(tx):
     Movie:{label: 'Movie', 
         properties: { 
             act_likes:{ property: 'likes', defaultValue:0.0 }, 
-            aspect_ratio:{ property:'aspect_ratio', defaultValue:0.0  },    
             budget:{property:'budget', defaultValue:0.0},
             cast_total_facebook_likes:{property:'cast_total_facebook_likes', defaultValue:0.0},
             duration:{property:'duration', defaultValue:0.0},   
@@ -194,7 +192,6 @@ def create_graph_projection_graphsage(tx):
     Director:{label: 'Director', 
         properties: { 
             act_likes:{ property: 'likes', defaultValue:0.0 }, 
-            aspect_ratio:{ property:'aspect_ratio', defaultValue:0.0  },    
             budget:{property:'budget', defaultValue:0.0},
             cast_total_facebook_likes:{property:'cast_total_facebook_likes', defaultValue:0.0},
             duration:{property:'duration', defaultValue:0.0},   
@@ -224,8 +221,8 @@ RETURN graphName, nodeCount, relationshipCount, createMillis
 def train_graphSage():
     with driver.session() as session:
         q_train = """CALL gds.beta.graphSage.train('dbProjection', {modelName:'esempioTrainModel', featureProperties:['act_likes', 'budget', 'cast_total_facebook_likes', 'duration', 
-        'genre', 'gross', 'imdb_score', 'movie_facebook_likes', 
-        'num_voted_users', 'title_year', 'dir_likes'], embeddingDimension:256})"""
+        'genre', 'gross', 'imdb_score', 'movie_facebook_likes',
+        'num_voted_users', 'title_year', 'dir_likes'], embeddingDimension:1024})"""
         result=session.run(q_train)
         print("TRAIN GRAPHSAGE ESEGUITO \n")
         print(result)
@@ -244,7 +241,7 @@ def stream_graphSage():
 def write_graphSage():
     with driver.session() as session:
         q_write = """
-            CALL gds.beta.graphSage.write('dbProjection', {writeProperty:'embedding', modelName:'esempioTrainModel'})
+            CALL gds.beta.graphSage.write('dbProjection', {writeProperty:'graphsage_embedding', modelName:'esempioTrainModel'})
         """
         result=session.run(q_write)
         print("WRITE GRAPHSAGE ESEGUITO \n")
@@ -372,5 +369,6 @@ if __name__ == "__main__":
         #session.read_transaction(create_graph_projection_fastrp)
         #session.read_transaction(memory_estimation())
         #session.write_transaction(write_fastRp())
-        #read_fastrp()
+        #read_graph()
+        
     driver.close()
