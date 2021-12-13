@@ -25,22 +25,21 @@ def get_authors():
         result_auth = session.run("""
         MATCH (p:Author)
         WITH DISTINCT p
-        RETURN p.name AS authorName, p.graphsage_embedding AS embeddingAuthor
+        RETURN p.id AS authorId, p.fastrp_embedding AS embeddingAuthor
         """)
-        authorName = []
+        authorId = []
         embeddingAuthor = []
         for record in result_auth:
-            authorName.append(record["authorName"])
-            embeddingAuthor.append(np.array(record["embeddingAuthor"]))
-        embeddings_auth = (np.stack(embeddingAuthor, 0))
-        return (authorName, embeddings_auth)
+            authorId.append(record["authorId"])
+            embeddingAuthor.append(record["embeddingAuthor"])
+        return (authorId, embeddingAuthor)
 
 def get_conference():
     with driver.session() as session:
         result_conf = session.run("""
         MATCH (p:Conference)
         WITH DISTINCT p
-        RETURN p.name AS confName, p.graphsage_embedding AS embeddingConf
+        RETURN p.name AS confName, p.fastrp_embedding AS embeddingConf
         """)
         confName = []
         embeddingConf = []
@@ -55,7 +54,7 @@ def get_paper():
         result_paper = session.run("""
         MATCH (p:Paper)
         WITH DISTINCT p
-        RETURN p.name AS paperName, p.graphsage_embedding AS embeddingPaper
+        RETURN p.name AS paperName, p.fastrp_embedding AS embeddingPaper
         """)
         paperName = []
         embeddingPaper = []
@@ -76,13 +75,13 @@ def read_graph():
         directorName, embeddings_paper = get_paper()
         
         # Riduzione dimensionale con TSNE ----> AUTORI
-        #auth_embedded = TSNE(n_components=2, random_state=6).fit_transform(embeddings_auth)
+        #auth_embedded = TSNE(n_components=3, random_state=6).fit_transform(embeddings_auth)
 
         # Riduzione dimensionale con TSNE ----> CONFERENZA
-        #conf_embedded = TSNE(n_components=2, random_state=6).fit_transform(embeddings_conf)
+        #conf_embedded = TSNE(n_components=3, random_state=6).fit_transform(embeddings_conf)
 
         # Riduzione dimensionale con TSNE ----> PAPER
-        #paper_embedded = TSNE(n_components=2, random_state=6).fit_transform(embeddings_paper)
+        #paper_embedded = TSNE(n_components=3, random_state=6).fit_transform(embeddings_paper)
 
         #plot
         #figure1 = plt.scatter(auth_embedded[:,0], auth_embedded[:,1], color="green", label="Author")
@@ -90,12 +89,11 @@ def read_graph():
         #firgure3 = plt.scatter(paper_embedded[:,0], paper_embedded[:,1], color="blue", label="Paper")
 
         #plotting in 3d
-        conf_embedded = TSNE(n_components=3, random_state=6).fit_transform(embeddings_conf)
         ax = plt.axes(projection='3d')
-        ax.scatter3D(conf_embedded[:,0], conf_embedded[:,1], conf_embedded[:,2], c=conf_embedded[:,2], cmap='Greens')
+        #ax.scatter3D(conf_embedded[:,0], conf_embedded[:,1], conf_embedded[:,2], c=conf_embedded[:,2], cmap='Greens')
+        #ax.scatter3D(auth_embedded[:,0], auth_embedded[:,1], auth_embedded[:,2], c=auth_embedded[:,2], cmap='Reds')
+        #ax.scatter3D(paper_embedded[:,0], paper_embedded[:,1], paper_embedded[:,2], c=paper_embedded[:,2], cmap='Blues')
 
-
-        plt.legend()
         plt.show()
 
 
@@ -110,7 +108,7 @@ def delete_graph_projection(graph_name):
 
 
 
-################################# GRAPH SAGE (gds v. 1.5) #######################################
+################################# GRAPH SAGE (gds v. 1.7.1) #######################################
 # FUNZIONA PER GRAPHSAGE
 # 
 # Creazione di una proiezione di un grafo
@@ -160,14 +158,6 @@ def train_graphSage():
         print(result)
         print("\n\n")
 
-# HA SENSO? Stream per graphSage
-def stream_graphSage():
-    with driver.session() as session:
-        q_stream = "call gds.beta.graphSage.stream('dbProjection', {modelName:'dblp_model'})"
-        result=session.run(q_stream)
-        print("STREAM GRAPHSAGE ESEGUITO \n")
-        print(result)
-        print("\n\n")
 
 # FUNZIONA Write per graphSage
 def write_graphSage():
@@ -182,7 +172,7 @@ def write_graphSage():
 
 
 
-###################################### FAST RP (gds v. 1.5)  ######################################
+###################################### FAST RP (gds v. 1.7.1)  ######################################
 # FUNZIONA PER FASTRP
 # 
 # Creazione di una proiezione di un grafo
@@ -191,7 +181,7 @@ def write_graphSage():
 # 
 def create_graph_projection_fastrp(tx):
     with driver.session() as session:
-        create = ("""CALL gds.graph.create('dbProjection', {
+        create = ("""CALL gds.graph.create('dbFastProjection', {
     Conference: {label: 'Conference', 
         properties: { 
             conf_label:{ property: 'label', defaultValue:0.0 },    
@@ -227,28 +217,19 @@ RETURN graphName, nodeCount, relationshipCount, createMillis
 # Stima della memoria per FastRP
 def memory_estimation():
     with driver.session() as session:
-        q_mem = """CALL gds.fastRP.stream.estimate('dbProjection', {embeddingDimension: 128})
+        q_mem = """CALL gds.fastRP.stream.estimate('dbFastProjection', {embeddingDimension: 128})
                     YIELD nodeCount, relationshipCount, bytesMin, bytesMax, requiredMemory"""
         result = session.run(q_mem)
         for ris in result:
             print(ris)
         node_cnt, rel_cnt, b_min, b_min, req = 0
-        
 
-# Stream per FastRP
-def stream_fastRP():
-    with driver.session() as session:
-        q_stream = "call gds.beta.graphSage.stream('dbProjection', {embeddingDimension:128})"
-        result=session.run(q_stream)
-        print("STREAM FASTRP ESEGUITO \n")
-        print(result)
-        print("\n\n")
 
 # Write per FastRP
 def write_fastRp():
     with driver.session() as session:
         q_write = """
-            call gds.fastRP.write('dbProjection', {embeddingDimension:256, writeProperty:'fastrp_embedding'})
+            call gds.fastRP.write('dbFastProjection', {embeddingDimension:256, writeProperty:'fastrp_embedding'})
         """
         session.run(q_write)
         
@@ -261,11 +242,11 @@ if __name__ == "__main__":
         #train_graphSage()
         #stream_graphSage()
         #write_graphSage() 
-        read_graph()
+        #read_graph()
 
         #session.read_transaction(create_graph_projection_fastrp)
         #session.read_transaction(memory_estimation())
-        #session.write_transaction(write_fastRp())
-        #read_graph()
+        #session.write_transaction(write_fastRp)
+        read_graph()
         
     driver.close()
