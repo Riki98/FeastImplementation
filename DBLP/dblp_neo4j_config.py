@@ -25,7 +25,7 @@ def get_authors():
         result_auth = session.run("""
         MATCH (p:Author)
         WITH DISTINCT p
-        RETURN p.id AS authorId, p.fastrp_embedding AS embeddingAuthor
+        RETURN p.id AS authorId, p.graphsage_embedding AS embeddingAuthor
         """)
         authorId = []
         embeddingAuthor = []
@@ -39,30 +39,30 @@ def get_conference():
         result_conf = session.run("""
         MATCH (p:Conference)
         WITH DISTINCT p
-        RETURN p.name AS confName, p.fastrp_embedding AS embeddingConf
+        RETURN p.id AS confId, p.graphsage_embedding AS embeddingConf
         """)
-        confName = []
+        confId = []
         embeddingConf = []
         for record in result_conf:
-            confName.append(record["confName"])
+            confId.append(record["confId"])
             embeddingConf.append(np.array(record["embeddingConf"]))
         embeddings_conf = (np.stack(embeddingConf, 0))
-        return (confName, embeddings_conf)
+        return (confId, embeddings_conf)
 
 def get_paper():
     with driver.session() as session:
         result_paper = session.run("""
         MATCH (p:Paper)
         WITH DISTINCT p
-        RETURN p.name AS paperName, p.fastrp_embedding AS embeddingPaper
+        RETURN p.id AS paperId, p.graphsage_embedding AS embeddingPaper
         """)
-        paperName = []
+        paperId = []
         embeddingPaper = []
         for record in result_paper:
-            paperName.append(record["paperName"])
+            paperId.append(record["paperId"])
             embeddingPaper.append(np.array(record["embeddingPaper"]))
         embeddings_paper = (np.stack(embeddingPaper, 0))
-        return (paperName, embeddings_paper)
+        return (paperId, embeddings_paper)
 
 
 

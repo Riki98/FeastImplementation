@@ -1,21 +1,17 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.cluster import DBSCAN
-from sklearn.preprocessing import StandardScaler
 import pandas as pd
 import dblp_neo4j_config
 from sklearn.manifold import TSNE
-from mpl_toolkits.mplot3d import Axes3D
-import seaborn as sns
-from sklearn.cluster import HDBSCAN
 
 
 # #############################################################################
 # Generate sample data
 
-authId, auth_embedded = dblp_neo4j_config.get_authors()
-#confName, conf_embedded = dblp_neo4j_config.get_conference()
-#paperName, paper_embedded = dblp_neo4j_config.get_paper()
+#authId, auth_embedded = dblp_neo4j_config.get_authors()
+#confId, conf_embedded = dblp_neo4j_config.get_conference()
+paperId, paper_embedded = dblp_neo4j_config.get_paper()
 
 # Riduzione dimensionale con TSNE ----> Autori
 #auth_tsne = TSNE(n_components=2, random_state=6).fit_transform(auth_embedded)
@@ -27,8 +23,8 @@ authId, auth_embedded = dblp_neo4j_config.get_authors()
 # controllare range graphsage e fastrp
 #x = StandardScaler().fit_transform(df_authors)
 
-auth_emb = np.array(auth_embedded)
-auth_id = np.array(authId)
+auth_emb = np.array(paper_embedded)
+auth_id = np.array(paperId)
 
 #controllo se ho tante colonne duplicate - axis = 0 -> riga
 unq, index_inverse, count = np.unique(auth_emb, axis=0, return_counts=True, return_inverse=True)
@@ -36,8 +32,9 @@ unq, index_inverse, count = np.unique(auth_emb, axis=0, return_counts=True, retu
 count_max = unq[count==count.max()][0]
 #print(count_max)
 
-# vseleziono i 12 autori con lo stesso embedding
+# con fastRP: seleziono i 12 autori con lo stesso embedding
 # ['A11208', 'A26999', 'A27289', 'A27609', 'A48747', 'A123329', 'A123394', 'A123588', 'A123870', 'A316459', 'A316460', 'A316461']
+# nelle conferenze, sono tutti punti di rumore, ['AAAI' 'CIKM' 'CVPR' 'ECIR' 'ECML' 'EDBT' 'ICDE' 'ICDM' 'ICML' 'IJCAI' 'KDD' 'PAKDD' 'PKDD' 'PODS' 'SDM' 'SIGIR' 'SIGMOD ' 'VLDB' 'WWW' 'WSDM']
 indice_count_max = np.all(auth_emb==count_max, axis=1)
 #print(auth_emb[indice_count_max])
 #print(auth_id[indice_count_max])
@@ -45,7 +42,7 @@ indice_count_max = np.all(auth_emb==count_max, axis=1)
 
 # #############################################################################
 # Compute DBSCAN
-model = DBSCAN(eps=1.65, min_samples=10).fit(auth_emb)
+model = DBSCAN(eps=0.01, min_samples=10).fit(auth_emb)
 pred = model.fit(auth_emb)
 labels = model.labels_
 core_samples_mask = np.zeros_like(labels, dtype=bool)
@@ -63,7 +60,7 @@ unique_labels = set(labels)
 print(unique_labels)
 colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))]
 
-auth_amb_reduced = TSNE(n_components=2, random_state=6).fit_transform(auth_emb)
+auth_emb_reduced = TSNE(n_components=2, random_state=6).fit_transform(auth_emb)
 print(zip(unique_labels, colors))
 for k, col in zip(unique_labels, colors):
     if k == -1:
@@ -73,11 +70,14 @@ for k, col in zip(unique_labels, colors):
     class_member_mask = labels == k
 
     # plotto i dati clusterizzati
-    plt.plot(auth_amb_reduced[:, 0][labels == k], auth_amb_reduced[:, 1][labels == k], "o", markerfacecolor=tuple(col), markeredgecolor="k", markersize=14)
+    plt.plot(auth_emb_reduced[:, 0][labels == k], auth_emb_reduced[:, 1][labels == k], "o", markerfacecolor=tuple(col), markeredgecolor="k", markersize=14)
     print("cluster numero: " + str(k))
     print("grandezza cluster: " + str((labels == k).sum()))
 
-print(auth_id[labels == 1])
+#trovo gli id di una determinata etichetta
+#for ul in unique_labels: 
+print(auth_id[labels == -1])
+
 
 
 plt.title("Estimated number of clusters: %d" % n_clusters_)
