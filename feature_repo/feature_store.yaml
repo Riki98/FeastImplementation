@@ -1,0 +1,7 @@
+project: TesiNeo4jForFeast
+registry: data/registry.db
+provider: local
+offline_store: Offline_Store
+online_store:
+    type: redis
+    connection_string: localhost:6379

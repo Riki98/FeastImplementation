@@ -1,9 +1,0 @@
-# definisce il nome dell'intero feature store.
-project: feast_repo
-# Registry: configura la locazione del registro delle feature
-registry: data/registry.db
-# configura l'environment  nel qual feast opera
-provider: local
-# Configura l'online store
-online_store:
-    path: data/online_store.db
