@@ -11,8 +11,6 @@ from kneed import KneeLocator
 from sklearn.datasets import make_blobs
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
-from sklearn.preprocessing import StandardScaler
-from mpl_toolkits import mplot3d
 
 #######################################
 
@@ -112,7 +110,6 @@ def delete_graph_projection(graph_name):
 # FUNZIONA PER GRAPHSAGE
 # 
 # Creazione di una proiezione di un grafo
-# controlla come sostituire le parentesi graffe con le quadre nella stringa della query
 # name_proj, graph_name, property_list, relationship_list
 # 
 def create_graph_projection_graphsage(tx):

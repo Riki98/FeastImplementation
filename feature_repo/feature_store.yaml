@@ -1,7 +1,30 @@
 project: TesiNeo4jForFeast
-registry: data/registry.db
+
+
+registry:
+    registry_store_type: feast_postgres.PostgreSQLRegistryStore
+    path: feast_registry    # This will become the table name for the registry
+    host: localhost
+    port: 5432              # Optional, default is 5432
+    database: postgres
+    db_schema: my_schema
+    user: postgres
+    password: password
+
+
 provider: local
-offline_store: Offline_Store
+
+
+offline_store:
+    type: feast_postgres.PostgreSQLOfflineStore # MUST be this value
+    host: localhost
+    port: 5432              # Optional, default it 5432
+    database: postgres
+    db_schema: my_schema
+    user: postgres
+    password: password
+
+
 online_store:
     type: redis
     connection_string: localhost:6379
