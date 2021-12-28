@@ -2,18 +2,19 @@
 
 from google.protobuf.duration_pb2 import Duration
 
-from feast import Entity, Feature, FeatureView, ValueType, FileSource 
+from feast import Entity, Feature, FeatureView, ValueType
 
-from feast_postgres import PostgreSQLSource
+from neo4j_datasource import Neo4jSource
 
 # Read data from parquet files. Parquet is convenient for local development mode. For
 # production, you can use your favorite DWH, such as BigQuery. See Feast documentation
 # for more info.
-authors_source_view = PostgreSQLSource(
+authors_source_view = Neo4jSource(
     query="SELECT * FROM authors", 
     event_timestamp_column="event_timestamp",
     created_timestamp_column="created",
 )
+
 
 #for redis
 """ driver_hourly_stats_redis = FileSource(

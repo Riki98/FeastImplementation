@@ -1,9 +1,10 @@
 import neo4j
-from neo4j.exceptions import DriverError, Neo4jError
-
 import config
-
+from neo4j.exceptions import DriverError, Neo4jError
+from feast import ValueType
 from neo4j import GraphDatabase
+from typing import Dict, List
+
 
 driver = None
 default_db = config.NEO4J_DB
@@ -51,6 +52,10 @@ def run_query_return_graph(tx, r_query, params):
     res = tx.run(r_query, params=params)
     return {'graph': res.graph(), 'dataBase': res.consume().database}
 
+def run_query_return_value_keys(tx, r_query, params):
+    res = tx.run(r_query, params=params)
+    return {'values': res.values(), 'keys': res.keys(), 'dataBase': res.consume().database}
+
 
 def run_transaction_query(cypher_query, params={}, db=default_db, run_query=run_query_return_data_key, write=False):
     db = (db if not db == "" and not db == " " else default_db)
@@ -61,4 +66,3 @@ def run_transaction_query(cypher_query, params={}, db=default_db, run_query=run_
         else:
             result = ssn.write_transaction(run_query, cypher_query, params)
         return result
-

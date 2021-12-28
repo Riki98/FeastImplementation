@@ -5,10 +5,6 @@ import driver_neo4j
 
 ###################################################################################
 
-driver = GraphDatabase.driver("neo4j://localhost:7687", auth=("neo4j", "0000"))
-
-###################################################################################
-
 # FUNZIONA PER GRAPHSAGE
 # 
 # Creazione di una proiezione di un grafo
@@ -97,3 +93,8 @@ def get_paper():
         embeddings_paper = (np.stack(embeddingPaper, 0))
         return (paperId, embeddings_paper)
 
+
+
+def prova(): 
+    query = """match (p:Author) where p.id = "A582" return p.fastrp_embedding, p.graphsage_embedding, p.provaStringa, p.provaBoolean """
+    return driver_neo4j.run_transaction_query(query, run_query=driver_neo4j.run_query_return_data_key)
