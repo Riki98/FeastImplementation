@@ -35,13 +35,15 @@ def init_neo4j_connector():
 
 def run_query_return_data_key(tx, r_query, params):
     res = tx.run(r_query, params=params)
-    return {'data': res.data(), 'keys': res.keys(), 'dataBase': res.consume().database}
+    return {'keys': res.keys(), 'data': res.data(), 'dataBase': res.consume().database}
 
+def run_query_return_data(tx, r_query, params):
+    res = tx.run(r_query, params=params)
+    return {'data': res.data(), 'dataBase': res.consume().database}
 
 def run_query_return_value(tx, r_query, params):
     res = tx.run(r_query, params=params)
     return {'values': res.values(), 'dataBase': res.consume().database}
-
 
 def run_query_return_single(tx, r_query, params):
     res = tx.run(r_query, params=params)
@@ -57,7 +59,7 @@ def run_query_return_value_keys(tx, r_query, params):
     return {'values': res.values(), 'keys': res.keys(), 'dataBase': res.consume().database}
 
 
-def run_transaction_query(cypher_query, params={}, db=default_db, run_query=run_query_return_data_key, write=False):
+def run_transaction_query(cypher_query, params={}, db=default_db, run_query=run_query_return_data, write=False):
     db = (db if not db == "" and not db == " " else default_db)
     print(f"LOG - INFO [neoj4_utils - query]: running query on {db if db else 'default'} DB instance: {cypher_query}")
     with session(database=db) as ssn:

@@ -1,7 +1,7 @@
-from neo4j import GraphDatabase
 import numpy as np
 import pandas as pd
 import driver_neo4j
+import neo4j_datasource
 
 ###################################################################################
 
@@ -12,7 +12,7 @@ import driver_neo4j
 # name_proj, graph_name, property_list, relationship_list
 # 
 def create_graph_projection_graphsage(tx, session):
-    with driver.session() as session:
+    with driver_neo4j.session() as session:
         create = ("""CALL gds.graph.create('dbProjection', {
         Conference: {label: 'Conference', 
             properties: { 
@@ -62,7 +62,7 @@ def get_authors():
 
 
 def get_conference():
-    with driver.session() as session:
+    with driver_neo4j.session() as session:
         result_conf = session.run("""
         MATCH (p:Conference)
         WITH DISTINCT p
@@ -79,7 +79,7 @@ def get_conference():
 
 
 def get_paper():
-    with driver.session() as session:
+    with driver_neo4j.session() as session:
         result_paper = session.run("""
         MATCH (p:Paper)
         WITH DISTINCT p
@@ -95,6 +95,23 @@ def get_paper():
 
 
 
-def prova(): 
-    query = """match (p:Author) where p.id = "A582" return p.fastrp_embedding, p.graphsage_embedding, p.provaStringa, p.provaBoolean """
-    return driver_neo4j.run_transaction_query(query, run_query=driver_neo4j.run_query_return_data_key)
+############################################################ QUI IMPORTA GLI EMBEDDING DA NEO4J ##################################################################
+""" auth_id, auth_emb = neo4j_graph_sage.get_authors()
+timestamp_auth = [pd.Timestamp.now() for emb in auth_emb]
+df_auth = pd.DataFrame(index=auth_id, columns=["Authors_embedding"])
+df_auth["Authors_embedding"] = [np.array(emb) for emb in auth_emb]
+df_auth["event_timestamp"] = timestamp_auth
+df_auth["created"] = timestamp_auth """
+
+
+
+
+############################################################ CREAZIONE TABELLE SU POSTGRES ##################################################################
+
+""" table = "authors"
+con.execute("DROP TABLE IF EXISTS " + table)
+df_auth.to_sql(table, con, dtype={"Authors_embedding": ARRAY(FLOAT), "event_timestamp": TIMESTAMP, "created": TIMESTAMP})
+res = con.execute("SELECT * FROM authors").fetchone()
+print(type(res["Authors_embedding"])) """
+
+

@@ -1,91 +1,76 @@
-from feast import ValueType
-from feast.data_source import DataSource
-from feast.protos.feast.core.DataSource_pb2 import DataSource as DataSourceProto
-from typing import Callable, Dict, Optional
-from feast.repo_config import RepoConfig
-import json
-import driver_neo4j
+import pandas as pd
+from sqlalchemy.sql.sqltypes import String
+import yaml
+import sqlalchemy
+from feast_postgres import PostgreSQLOfflineStoreConfig
+import driver_neo4j as driver
 
-class Neo4jSource(DataSource):
-    def __init__(
-        self,
-        query: str,
-        event_timestamp_column: Optional[str] = "",
-        created_timestamp_column: Optional[str] = "",
-        field_mapping: Optional[Dict[str, str]] = None,
-        date_partition_column: Optional[str] = "",
-    ):
-        self._neo4j_options = Neo4jOptions(query=query)
-        super().__init__(
-            event_timestamp_column,
-            created_timestamp_column,
-            field_mapping,
-            date_partition_column,
-        )
-    
-    def __eq__(self, other):
-        if not isinstance(other, Neo4jSource):
-            raise TypeError(
-                "Comparisons should only involve Neo4jSource class objects."
-            )
+############################################################# CONFIGURAZIUONE OFFLINE ############################################################################
+with open("feature_store.yaml", "r") as stream:
+    try:
+        config = yaml.safe_load(stream)
+    except yaml.YAMLError as exc:
+        print(exc)
 
-        return (
-            self._neo4j_options._query == other._neo4j_options._query
-            and self.event_timestamp_column == other.event_timestamp_column
-            and self.created_timestamp_column == other.created_timestamp_column
-            and self.field_mapping == other.field_mapping
-        )
 
-    @staticmethod
-    def from_proto(data_source: DataSourceProto):
-        assert data_source.HasField("custom_options")
+offline_config = config["offline_store"]
+del offline_config["type"]
+offline_config = PostgreSQLOfflineStoreConfig(**offline_config)
 
-        _neo4j_options = json.loads(data_source.custom_options.configuration)
-        return Neo4jSource(
-            query=_neo4j_options["query"],
-            field_mapping=dict(data_source.field_mapping),
-            event_timestamp_column=data_source.event_timestamp_column,
-            created_timestamp_column=data_source.created_timestamp_column,
-            date_partition_column=data_source.date_partition_column,
-        )
+def get_sqlalchemy_engine(config: PostgreSQLOfflineStoreConfig):
+    url = f"postgresql+psycopg2://{config.user}:{config.password}@{config.host}:{config.port}/{config.database}" 
+    print(config.db_schema)
+    return sqlalchemy.create_engine(url, client_encoding='utf8', connect_args={'options': '-c search_path={}'.format(config.db_schema)}) 
+con = get_sqlalchemy_engine(offline_config)
 
-    def to_proto(self) -> DataSourceProto:
-        data_source_proto = DataSourceProto(
-            type=DataSourceProto.CUSTOM_SOURCE,
-            field_mapping=self.field_mapping,
-            custom_options=self._neo4j_options.to_proto(),
-        )
 
-        data_source_proto.event_timestamp_column = self.event_timestamp_column
-        data_source_proto.created_timestamp_column = self.created_timestamp_column
-        data_source_proto.date_partition_column = self.date_partition_column
+############################################################ FUNZIONI NEO4J ##################################################################
 
-        return data_source_proto
-
-    def validate(self, config: RepoConfig):
-        pass
-
-    @staticmethod
-    def source_datatype_to_feast_value_type() -> Callable[[str], ValueType]:
-        return driver_neo4j.neo4j_type_to_feast_value_type()
+def run_retrieve_neo4j_table(table_name : String, column_name : list[String] = None) :
+    table_query = "MATCH (t:Author) RETURN t.name"
+    df_res = None
+    if column_name == None : 
+        table_query += "t LIMIT 2"
+            
+    else :
+        str_to_append = f"""t.{column_name[0]} """
+        table_query += str_to_append
+        column_name.pop(0)
+        for column in column_name :
+            str_to_append = f""", t.{column} """
+            table_query += str_to_append
+        res_query = driver.run_transaction_query(table_query, run_query=driver.run_query_return_data_key)
+        df_res = pd.DataFrame.from_dict(res_query)
+    res_query = driver.run_transaction_query(table_query, run_query=driver.run_query_return_data)
+    print(res_query)
+    res_query = [x["t"] for x in res_query["data"]]
+    df_res = pd.DataFrame.from_dict(res_query)
+    return df_res
 
 
 
+def run_store_data(table_name : String, df_table : pd.DataFrame, if_exist : String) : 
+    var_temp = pd.Timestamp.now()
+    df_table["event_timestamp"] = var_temp
+    df_table["created"] = var_temp
+    if if_exist == "replace" : 
+        df_table.to_sql(table_name, con, offline_config.db_schema, if_exists="replace", index=False) # rimpiazzo tutta la tabella su postgres
+    elif if_exist == "append" : 
+        df_table.to_sql(table_name, con, offline_config.db_schema, if_exists="append", index=False) # aggiungo i dati alla tabella su postgres
 
-class Neo4jOptions:
-    def __init__(self, query: Optional[str]):
-        self._query = query
 
-    @classmethod
-    def from_proto(cls, neo4j_options_proto: DataSourceProto.CustomSourceOptions):
-        config = json.loads(neo4j_options_proto.configuration.decode("utf8"))
-        neo4j_options = cls(query=config["query"],)
 
-        return neo4j_options
+def run_create_offline_table(table_name : String, df_table : pd.DataFrame, if_exist : String = None):
+    var_temp = pd.Timestamp.now()
+    df_table["event_timestamp"] = var_temp
+    df_table["created"] = var_temp
+    if if_exist == "replace" : 
+        df_table.to_sql(table_name, con, offline_config.db_schema, if_exists="replace", index=False) # rimpiazzo tutta la tabella su postgres
+    else : 
+        df_table.to_sql(table_name, con, offline_config.db_schema, index=False) # creo la tabella su postgres
 
-    def to_proto(self) -> DataSourceProto.CustomSourceOptions:
-        neo4j_options_proto = DataSourceProto.CustomSourceOptions(
-            configuration=json.dumps({"query": self._query}).encode()
-        )
 
-        return neo4j_options_proto
+def run_delete_offline_table(table_name : String) :
+    con.execute(f"DROP CASCADE TABLE IF EXISTS {table_name}")
+
+
