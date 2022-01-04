@@ -8,13 +8,13 @@ from feast import FeatureStore, Entity
 
 entity_auth = Entity("id_auth")
 
-store = FeatureStore(repo_path="./feature_repo")
+store = FeatureStore(repo_path="./")
 
 # {"index":["A76"], "event_timestamp":["2021-12-23 17:09:28.058854"], "created": ["2021-12-23 17:09:28.058854"]}
 training_df = store.get_historical_features(
-    entity_df="select \"index\", event_timestamp from authors",
+    entity_df="select \"index\", event_timestamp from test",
     features=[
-        "authors_view:Authors_embedding",
+        "author_view:Authors_embedding",
     ]
 ).to_df()
 

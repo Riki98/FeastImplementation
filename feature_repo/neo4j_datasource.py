@@ -1,7 +1,11 @@
 import pandas as pd
+from sqlalchemy.sql.schema import Table
 from sqlalchemy.sql.sqltypes import String
 import yaml
+import json
 import sqlalchemy
+from sqlalchemy.orm import declarative_base
+from sqlalchemy import update
 from feast_postgres import PostgreSQLOfflineStoreConfig
 import driver_neo4j as driver
 
@@ -25,23 +29,14 @@ con = get_sqlalchemy_engine(offline_config)
 
 
 ############################################################ FUNZIONI NEO4J ##################################################################
-def run_retrieve_postgres_table(table_name : String) : 
-    query = f"SELECT * FROM {table_name}"
-    res = con.execute(query).fetchall()
-    return res
-
-
 
 # funziona
 def run_retrieve_neo4j_table(table_name : String) :
-    table_query = f"MATCH (t:{table_name}) RETURN t LIMIT 2"
+    table_query = f"MATCH (t:{table_name}) RETURN t LIMIT 4"
     res_query = driver.run_transaction_query(table_query, run_query=driver.run_query_return_data)
-    print(res_query)
     res_query = [x["t"] for x in res_query["data"]]
     df_res = pd.DataFrame.from_dict(res_query)
     return df_res
-
-
 
 
 # funziona
@@ -63,19 +58,16 @@ def run_drop_offline_table(table_name : String) :
 
 
 
-
-# funziona, se append non è specificato, creo una nuova tabello su cui fare lo store dei dati
-def run_store_data(table_name : String, df_input : pd.DataFrame, if_exist : String) : 
+# da provare
+def run_store_data(table_name : String, df_input : pd.DataFrame) : 
     var_temp = pd.Timestamp.now()
     df_input["event_timestamp"] = var_temp
     df_input["created"] = var_temp
-    if if_exist == "append" : 
-        # aggiungo i dati alla tabella su postgres
-        df_input.to_sql(table_name, con, offline_config.db_schema, if_exists="append", index=False) # aggiungo i dati alla tabella su postgres
-
-    elif if_exist == "replace": 
-        #controllo quali id sono già presenti e li rimpiazzo
-        df_input.to_sql(table_name, con, offline_config.db_schema, if_exists="replace", index=False)
-
-
-
+    #controllo se esiste la tabella, in caso restituisco sollevo un errore
+    try:
+        con.execute("select exists(select * from information_schema.tables where table_name=%s)", (table_name)).fetchone()
+    except:
+        print("The table doesn't exists")
+    #casi if_exist
+    # aggiungo i dati alla tabella su postgres
+    df_input.to_sql(table_name, con, offline_config.db_schema, if_exists="append", index=False)

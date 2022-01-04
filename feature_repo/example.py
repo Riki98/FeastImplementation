@@ -2,15 +2,17 @@
 
 from google.protobuf.duration_pb2 import Duration
 
-from feast import Entity, Feature, FeatureView, ValueType
+from feast import Entity, Feature, FeatureView, ValueType, FileSource
 
-from neo4j_datasource import Neo4jSource
+from feast_postgres import PostgreSQLSource
+
+import neo4j_datasource
 
 # Read data from parquet files. Parquet is convenient for local development mode. For
 # production, you can use your favorite DWH, such as BigQuery. See Feast documentation
 # for more info.
-authors_source_view = Neo4jSource(
-    query="SELECT * FROM authors", 
+authors_source_view = PostgreSQLSource(
+    query="SELECT * FROM test", 
     event_timestamp_column="event_timestamp",
     created_timestamp_column="created",
 )
@@ -25,7 +27,6 @@ authors_source_view = Neo4jSource(
 
 # Define an entity for the driver. You can think of entity as a primary key used to
 # fetch features.
-# driver = Entity(name="driver_id", value_type=ValueType.INT64, description="driver id")
 index_entity = Entity(name="index", value_type=ValueType.STRING, description="author id")
 
 
@@ -58,4 +59,4 @@ authors_view_postgres = FeatureView(
     online=True,
     batch_source=driver_hourly_stats_redis,
     tags={},
-)  """
+) """
