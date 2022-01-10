@@ -7,7 +7,7 @@ registry:
     host: localhost
     port: 5431              # Optional, default is 5432
     database: postgres
-    db_schema: my_schema
+    db_schema: schema_registry
     user: postgres
     password: password
 
@@ -20,7 +20,7 @@ offline_store:
     host: localhost
     port: 5431              # Optional, default it 5432
     database: postgres
-    db_schema: my_schema
+    db_schema: offline_store_schema
     user: postgres
     password: password
 
