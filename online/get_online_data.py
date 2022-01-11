@@ -1,15 +1,8 @@
 # docker run --name redis --rm -p 6379:6379 -d redis
-
-from datetime import datetime, timedelta
-import pandas as pd
-
 from feast import FeatureStore, Entity, ValueType
-
-# The entity dataframe is the dataframe we want to enrich with feature values
 
 
 index_entity_auth = Entity(name="index_auth", value_type=ValueType.STRING, description="author id", join_key="id")
-#index_entity_paper = Entity(name="index_paper", value_type=ValueType.STRING, description="paper id", join_key="id")
 
 store = FeatureStore(repo_path="./")
 

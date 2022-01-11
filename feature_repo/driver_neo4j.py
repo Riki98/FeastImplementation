@@ -1,7 +1,5 @@
 import neo4j
 import config
-from neo4j.exceptions import DriverError, Neo4jError
-from feast import ValueType
 from neo4j import GraphDatabase
 from typing import Dict, List
 

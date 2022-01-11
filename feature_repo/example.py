@@ -1,15 +1,15 @@
 from os import path
 from google.protobuf.duration_pb2 import Duration
-from feast import Entity, Feature, FeatureView, ValueType, FileSource
+from feast import Entity, Feature, FeatureView, ValueType
 from feast_postgres import PostgreSQLSource
 import neo4j_datasource
 
 # Inserisco i dati da neo4j a postgres
 
-df_auth = neo4j_datasource.run_retrieve_neo4j_table("Author")
-neo4j_datasource.run_create_offline_table("Author", df_auth, "replace")
+df_auth = neo4j_datasource.run_retrieve_neo4j_node("Author")
+#neo4j_datasource.run_create_offline_table("Author", df_auth, "replace")
 neo4j_datasource.run_store_data("Author", df_auth)
-neo4j_datasource.run_drop_offline_table("Author")
+#neo4j_datasource.run_drop_offline_table("Author")
 
 #creo le view da postgres
 authors_source_view_postgres = PostgreSQLSource(
