@@ -17,7 +17,9 @@ entity_df = pd.DataFrame.from_dict(
     }
 )
 
-
+# A FeatureStore object is used to define, create, and retrieve features.
+# repo_path (optional): Path to a `feature_store.yaml` used to configure the 
+# feature store.
 store = FeatureStore(repo_path=".")
 
 #"select \"id\", \"event_timestamp\" as event_timestamp from \"Author\""

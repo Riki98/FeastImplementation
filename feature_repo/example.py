@@ -6,9 +6,9 @@ import neo4j_datasource
 
 # Inserisco i dati da neo4j a postgres
 
-df_auth = neo4j_datasource.run_retrieve_neo4j_node("Author")
+#df_auth = neo4j_datasource.run_retrieve_neo4j_node("Author")
 #neo4j_datasource.run_create_offline_table("Author", df_auth, "replace")
-neo4j_datasource.run_store_data("Author", df_auth)
+#neo4j_datasource.run_store_data("Author", df_auth)
 #neo4j_datasource.run_drop_offline_table("Author")
 
 #creo le view da postgres
@@ -35,3 +35,6 @@ author_embedding_view_postgres = FeatureView(
     batch_source=authors_source_view_postgres,
     tags={}
 )
+
+
+neo4j_datasource.get_offline_feature()

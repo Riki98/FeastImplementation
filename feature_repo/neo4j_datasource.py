@@ -1,9 +1,11 @@
-import yaml
-import sqlalchemy
-import pandas as pd
-import driver_neo4j as driver
-from sqlalchemy.sql.sqltypes import String
 from feast_postgres import PostgreSQLOfflineStoreConfig
+from sqlalchemy.sql.sqltypes import String
+from typing import Dict, List, Any
+from feast import FeatureStore
+import driver_neo4j as driver
+import pandas as pd
+import sqlalchemy
+import yaml
 
 
 # Taking the whole configuration for Feast from the yaml file.
@@ -46,7 +48,7 @@ def run_retrieve_neo4j_node(node_name : String) :
     return df_res
 
 
-# Managing data
+# Managing data - offline store
 
 def run_create_offline_table(table_name : String, df_input : pd.DataFrame, if_exist : String = None):
     """ 
@@ -99,3 +101,54 @@ def run_store_data(table_name : String, df_input : pd.DataFrame):
 
     df_input.to_sql(table_name, con, offline_config.db_schema, if_exists="append", index=False)
     print(f"Data stored in {table_name}")
+
+
+# Retrieve from offline store
+
+def get_offline_feature(feature_list : List[String], table_name : String): 
+    store = FeatureStore(repo_path=".")
+    #"select \"id\", \"event_timestamp\" as event_timestamp from \"Author\""
+    query = f"select {feature_list[0]}"
+    feature_list.pop(0)
+    if not feature_list :
+        for feature in feature_list:
+            query += f", {feature}"
+    query += f", \"event_timestamp\" as event_timestamp, created from {table_name}"
+
+    training_df = store.get_historical_features(
+        entity_df=query,
+        features=feature_list,
+    ).to_df()
+
+    print("----- Feature schema -----\n")
+    print(training_df.info())
+
+    print()
+    print("----- Example features -----\n")
+    print(training_df.head())
+
+    return training_df
+
+
+# Retrieve from offline store
+
+def get_online_feature(feature_list : Dict, feature_view_name : String, entity_rows : List[Dict[str, Any]]):
+    
+    store = FeatureStore(repo_path="./")
+
+    model_df = store.get_online_features(
+        features=[
+            "authors_view:graphsage_embedding",
+            "authors_view:fastrp_embedding",
+        ],
+        entity_rows=entity_rows
+    ).to_df()
+
+    print("----- Feature schema -----\n")
+    print(model_df.info())
+
+    print()
+    print("----- Example features -----\n")
+    print(model_df.head())
+
+    return model_df

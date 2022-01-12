@@ -5,7 +5,7 @@ registry:
     registry_store_type: feast_postgres.PostgreSQLRegistryStore
     path: feast_registry    # This will become the table name for the registry
     host: localhost
-    port: 5431              # Optional, default is 5432
+    port: 5432              # Optional, default is 5432
     database: postgres
     db_schema: schema_registry
     user: postgres
@@ -18,7 +18,7 @@ provider: local
 offline_store:
     type: feast_postgres.PostgreSQLOfflineStore # MUST be this value
     host: localhost
-    port: 5431              # Optional, default it 5432
+    port: 5432              # Optional, default it 5432
     database: postgres
     db_schema: offline_store_schema
     user: postgres
