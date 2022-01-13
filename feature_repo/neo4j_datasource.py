@@ -1,4 +1,5 @@
 from feast_postgres import PostgreSQLOfflineStoreConfig
+from matplotlib.pyplot import table
 from sqlalchemy.sql.sqltypes import String
 from typing import Dict, List, Any
 from feast import FeatureStore
@@ -105,15 +106,18 @@ def run_store_data(table_name : String, df_input : pd.DataFrame):
 
 # Retrieve from offline store
 
-def get_offline_feature(feature_list : List[String], table_name : String): 
+def get_offline_feature(feature_list : List[String], table : String): 
+
     store = FeatureStore(repo_path=".")
-    #"select \"id\", \"event_timestamp\" as event_timestamp from \"Author\""
-    query = f"select {feature_list[0]}"
-    feature_list.pop(0)
-    if not feature_list :
-        for feature in feature_list:
-            query += f", {feature}"
-    query += f", \"event_timestamp\" as event_timestamp, created from {table_name}"
+    
+    # query from feature_list and table_list
+    query = f"select"
+    """ for str in feature_list:
+        feature = str.split(":")
+        query += f" \"{feature[1]}\" as \"{feature[1]}_{table}\"," """
+    query += f" \"id\", \"event_timestamp\", \"created\" from \"{table}\""
+    print(query)
+    print("\n\n")
 
     training_df = store.get_historical_features(
         entity_df=query,
@@ -132,15 +136,14 @@ def get_offline_feature(feature_list : List[String], table_name : String):
 
 # Retrieve from offline store
 
-def get_online_feature(feature_list : Dict, feature_view_name : String, entity_rows : List[Dict[str, Any]]):
+def get_online_feature(feature_list : List[String], entity_rows : List[Dict[str, Any]]):
     
     store = FeatureStore(repo_path="./")
+    
+    print(feature_list)
 
     model_df = store.get_online_features(
-        features=[
-            "authors_view:graphsage_embedding",
-            "authors_view:fastrp_embedding",
-        ],
+        features=feature_list,
         entity_rows=entity_rows
     ).to_df()
 
