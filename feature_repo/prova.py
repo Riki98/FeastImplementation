@@ -1,5 +1,10 @@
 import neo4j_datasource
 
+import time
+
+start = time.time()
+
+
 # Inserisco i dati da neo4j a postgres
 
 #neo4j_datasource.run_drop_offline_table("Author")
@@ -9,6 +14,11 @@ df_auth = neo4j_datasource.run_retrieve_neo4j_db()
 
 #df_auth = neo4j_datasource.run_retrieve_neo4j_node("Paper")
 #neo4j_datasource.run_create_offline_table("Paper", df_auth, "replace")
+
+
+stop = time. time()
+print("The time of the run:", stop - start)
+
 
 ######## Def
 feature_auth = [
