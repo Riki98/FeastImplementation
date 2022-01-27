@@ -1,4 +1,4 @@
-# docker run --name redis --rm -p 6379:6379 -d redis
+""" # docker run --name redis --rm -p 6379:6379 -d redis
 from feast import FeatureStore, Entity, ValueType
 
 
@@ -24,4 +24,4 @@ print(training_df.info())
 
 print()
 print("----- Example features -----\n")
-print(training_df.head())
+print(training_df.head()) """

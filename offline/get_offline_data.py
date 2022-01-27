@@ -1,7 +1,4 @@
-from datetime import datetime, timedelta
-import pandas as pd
-
-from feast import FeatureStore
+""" from feast import FeatureStore
 
 
 # A FeatureStore object is used to define, create, and retrieve features.
@@ -9,7 +6,7 @@ from feast import FeatureStore
 # feature store.
 store = FeatureStore(repo_path=".")
 
-query = "select \"id\", \"event_timestamp\" as event_timestamp from \"Author\""
+query = "select \"id(n)\", \"event_timestamp\" as event_timestamp from \"Author\""
 training_df = store.get_historical_features(
     entity_df=query,
     features=[
@@ -24,4 +21,4 @@ print(training_df.info())
 
 print()
 print("----- Example features -----\n")
-print(training_df.head())
+print(training_df.head()) """

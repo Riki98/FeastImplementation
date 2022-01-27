@@ -1,15 +1,10 @@
 from feast_postgres import PostgreSQLOfflineStoreConfig
-from numpy import NaN
 from sqlalchemy.sql.sqltypes import String
 from typing import Dict, List, Any
 from feast import FeatureStore
-from tempfile import tempdir
 import driver_neo4j as driver
-from neo4j import graph
 import pandas as pd
-import numpy as np
 import sqlalchemy
-import time
 import yaml
 
 
@@ -49,7 +44,6 @@ def run_retrieve_neo4j_node(node_name : String) :
     node_query = f"MATCH (n:{node_name}) RETURN n, id(n)"
     res_query = driver.run_transaction_query(node_query, run_query=driver.run_query_return_data)
     a = res_query["data"]
-    print(pd.DataFrame.from_dict(a))
     res_query = [x["n"] for x in a]
     id_query = [x["id(n)"] for x in a]
     df_res = pd.DataFrame.from_dict(res_query)
@@ -89,9 +83,14 @@ def run_retrieve_neo4j_relationship(relationship_name : String) :
     return relationship_df
 
 
+def map_type(df_input : pd.DataFrame):
+    dict_type = {k:str(v[0]) for k,v in pd.DataFrame(df_input.dtypes).T.to_dict('list').items()}
+    print(dict_type)
+
+
 # Managing data - offline store
 
-def run_create_offline_node(table_name : String, df_input : pd.DataFrame, if_exist : String = None):
+def run_create_offline_node(table_name : String, df_input : pd.DataFrame, if_exists : String = None):
     """ 
     This function uses as input a DataFrame that will make up the Postgres table. 
     The user can decide if replace a table, in case it is already present, or creating it from scratch.
@@ -99,26 +98,29 @@ def run_create_offline_node(table_name : String, df_input : pd.DataFrame, if_exi
 
     :table_name: the name of the table the function creates/replaces.
     :df_input: the dataframe the function save as table in Postgres.
-    :if_exist: if "None" (as default), the function creates the table instead of replacing it with "replace".
+    :if_exists: if "None" (as default), the function creates the table instead of replacing it with "replace".
     """
     run_drop_offline_table(table_name)
 
     var_temp = pd.Timestamp.now()
     df_input["event_timestamp"] = var_temp
     df_input["created"] = var_temp
-    if if_exist == "replace" : 
+
+    if if_exists == "replace" : 
         df_input.to_sql(table_name, con, offline_config.db_schema, if_exists="replace", index=False, chunksize=500) 
-    elif if_exist == None :
+    elif if_exists == None :
         df_input.to_sql(table_name, con, offline_config.db_schema, index=False, chunksize=500) 
     else : 
-        print(f"\"{if_exist}\" not allowed. Did you mean \"replace\"?")
+        print(f"\"{if_exists}\" not allowed. Did you mean \"replace\"?")
 
     con.execute(f"ALTER TABLE \"{table_name}\" ADD PRIMARY KEY (\"id(n)\");")
     con.execute(f"CREATE INDEX IF NOT EXISTS \"idx_timestamp\" ON \"{table_name}\"(\"event_timestamp\");")
     con.execute(f"CREATE INDEX IF NOT EXISTS \"idx_created\" ON \"{table_name}\"(\"created\");")
     print(f"{table_name} created")
 
-def run_create_offline_relationship(relationship_name : String, df_input : pd.DataFrame, if_exist : String = None):
+
+
+def run_create_offline_relationship(relationship_name : String, df_input : pd.DataFrame, if_exists : String = None):
     """ 
     This function uses as input a DataFrame that will make up the Postgres table. 
     The user can decide if replace a table, in case it is already present, or creating it from scratch.
@@ -126,57 +128,56 @@ def run_create_offline_relationship(relationship_name : String, df_input : pd.Da
 
     :table_name: the name of the table the function creates/replaces.
     :df_input: the dataframe the function save as table in Postgres.
-    :if_exist: if "None" (as default), the function creates the table instead of replacing it with "replace".
+    :if_exists: if "None" (as default), the function creates the table instead of replacing it with "replace".
     """
     print(relationship_name + " la sto provando a cancellare")
     run_drop_offline_table(relationship_name)
 
     var_temp = pd.Timestamp.now()
+    #controlla se esiste già timestamp
     df_input["event_timestamp"] = var_temp
     df_input["created"] = var_temp
-
-    """ if if_exist == "replace" : 
-        df_input.to_sql(relationship_name, con, offline_config.db_schema, if_exists="replace", index=False, chunksize=500) 
-    elif if_exist == None :
-        df_input.to_sql(relationship_name, con, offline_config.db_schema, index=False, chunksize=500) 
-    else : 
-        print(f"\"{if_exist}\" not allowed. Did you mean \"replace\"?") """
     
-    # Spezzo orizzontalmente il dataframe, in modo da avere i pezzi con coppie di nodi dello stesso tipo sullo stesso pezzo.
-    # carico il pezzo in una tabella fittizia, inserisco le foreign key e la unisco (UNION) alla tabella principale.
-    df_labels = df_input[["label(n)", "label(m)"]]
-    df_labels = df_labels.drop_duplicates()
-    flag = 0
-    for iter, row in df_labels.iterrows() : 
-        if(flag == 0) :
+    if if_exists == None :
+        # Spezzo orizzontalmente il dataframe, in modo da avere i pezzi con coppie di nodi dello stesso tipo sullo stesso pezzo.
+        # carico il pezzo in una tabella fittizia, inserisco le foreign key e la unisco (UNION) alla tabella principale.
+        df_labels = df_input[["label(n)", "label(m)"]]
+        df_labels = df_labels.drop_duplicates()
+        flag = 0
+        for iter, row in df_labels.iterrows() : 
+            if(flag == 0) :
 
-            temp = df_input[(df_input["label(n)"] == row["label(n)"]) & (df_input["label(m)"] == row["label(m)"])]
-            temp.to_sql(f"{relationship_name}_temp", con, offline_config.db_schema, index=False, chunksize=500) 
+                temp = df_input[(df_input["label(n)"] == row["label(n)"]) & (df_input["label(m)"] == row["label(m)"])]
+                temp.to_sql(f"{relationship_name}_temp", con, offline_config.db_schema, index=False, chunksize=500) 
 
-            con.execute(f"ALTER TABLE \"{relationship_name}_temp\" ADD CONSTRAINT \"costraint_fk_start\" FOREIGN KEY (\"start_node\") REFERENCES \"{row[0]}\"(\"id(n)\");")
-            con.execute(f"ALTER TABLE \"{relationship_name}_temp\" ADD CONSTRAINT \"costraint_fk_end\" FOREIGN KEY (\"end_node\") REFERENCES \"{row[1]}\"(\"id(n)\");")
+                con.execute(f"ALTER TABLE \"{relationship_name}_temp\" ADD CONSTRAINT \"costraint_fk_start\" FOREIGN KEY (\"start_node\") REFERENCES \"{row[0]}\"(\"id(n)\");")
+                con.execute(f"ALTER TABLE \"{relationship_name}_temp\" ADD CONSTRAINT \"costraint_fk_end\" FOREIGN KEY (\"end_node\") REFERENCES \"{row[1]}\"(\"id(n)\");")
 
-            flag+=1
+                flag+=1
+            else :
+                temp = df_input[(df_input["label(n)"] == row["label(n)"]) & (df_input["label(m)"] == row["label(m)"])]
+
+                temp.to_sql("temp", con, offline_config.db_schema, index=False, chunksize=500) 
+                con.execute(f"ALTER TABLE \"temp\" ADD CONSTRAINT \"costraint_fk_start\" FOREIGN KEY (\"start_node\") REFERENCES \"{row[0]}\"(\"id(n)\");")
+                con.execute(f"ALTER TABLE \"temp\" ADD CONSTRAINT \"costraint_fk_end\" FOREIGN KEY (\"end_node\") REFERENCES \"{row[1]}\"(\"id(n)\");")
+
+                con.execute(f"CREATE TABLE \"temp_table\" AS (SELECT * FROM \"{relationship_name}_temp\" UNION SELECT * FROM \"temp\");")
+                con.execute(f"DROP TABLE IF EXISTS \"{relationship_name}_temp\"")
+        
+        """
+        If df_input has only a row of labels, set the correct name deleting the "_temp" part, otherwise change the whole name of temp_table
+        """
+        if flag == 1 : 
+            con.execute(f"ALTER TABLE \"{relationship_name}_temp\" RENAME TO \"{relationship_name}\"")
         else :
-            temp = df_input[(df_input["label(n)"] == row["label(n)"]) & (df_input["label(m)"] == row["label(m)"])]
+            con.execute(f"ALTER TABLE IF EXISTS \"temp_table\" RENAME TO \"{relationship_name}\"")
 
-            temp.to_sql("temp", con, offline_config.db_schema, index=False, chunksize=500) 
-            con.execute(f"ALTER TABLE \"temp\" ADD CONSTRAINT \"costraint_fk_start\" FOREIGN KEY (\"start_node\") REFERENCES \"{row[0]}\"(\"id(n)\");")
-            con.execute(f"ALTER TABLE \"temp\" ADD CONSTRAINT \"costraint_fk_end\" FOREIGN KEY (\"end_node\") REFERENCES \"{row[1]}\"(\"id(n)\");")
-
-            con.execute(f"CREATE TABLE \"temp_table\" AS (SELECT * FROM \"{relationship_name}_temp\" UNION SELECT * FROM \"temp\");")
-            con.execute(f"DROP TABLE IF EXISTS \"{relationship_name}_temp\"")
+    elif if_exists == "replace" : 
+        df_input.to_sql(relationship_name, con, offline_config.db_schema, if_exists="replace", index=False, chunksize=500) 
     
-    """
-    If df_input has only a row of labels, set the correct name deleting the "_temp" part, otherwise change the whole name of temp_table
-    """
-    if flag == 1 : 
-        con.execute(f"ALTER TABLE \"{relationship_name}_temp\" RENAME TO \"{relationship_name}\"")
-    else :
-        con.execute(f"ALTER TABLE IF EXISTS \"temp_table\" RENAME TO \"{relationship_name}\"")
-
-    print(f"{relationship_name} created")
-
+    else : 
+        print(f"\"{if_exists}\" not allowed")
+    
 
 def run_drop_offline_table(table_name : String):
     """ 
@@ -187,7 +188,7 @@ def run_drop_offline_table(table_name : String):
     con.execute(f"DROP TABLE IF EXISTS \"{table_name}\" CASCADE")
 
 
-def run_store_data(table_name : String, df_input : pd.DataFrame): 
+def run_store_data(table_name : String, df_input : pd.DataFrame, if_exists : String = "append"): 
     """ 
     Function used to store the data into the offline store.
     It also add the columns \"event_timestamp\" and \"created\" for the offline store.
@@ -204,7 +205,8 @@ def run_store_data(table_name : String, df_input : pd.DataFrame):
     except:
         print("The table doesn't exists")
     #fare append e replace
-    df_input.to_sql(table_name, con, offline_config.db_schema, if_exists="append", index=False)
+
+    df_input.to_sql(table_name, con, offline_config.db_schema, if_exists, index=False)
     print(f"Data stored in {table_name}")
 
 
@@ -293,3 +295,5 @@ def get_online_feature(feature_list : List[String], entity_rows : List[Dict[str,
     print(model_df.head())
 
     return model_df
+
+

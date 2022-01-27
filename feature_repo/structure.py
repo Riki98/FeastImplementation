@@ -12,7 +12,7 @@ authors_source_view_postgres = PostgreSQLSource(
 )
 
 # Define an entity for the auth
-index_entity_auth = Entity(name="index_auth", value_type=ValueType.STRING, description="author id", join_key="id")
+index_entity_auth = Entity(name="index_auth", value_type=ValueType.STRING, description="author id", join_key="id(n)")
 
 # postgres e redis usano le stesse identiche feature view
 author_embedding_view_postgres = FeatureView(
@@ -21,8 +21,8 @@ author_embedding_view_postgres = FeatureView(
     ttl=Duration(seconds=8000 * 1),
     features=[
         Feature(name="name", dtype=ValueType.STRING),
-        Feature(name="graphsage_embedding", dtype=ValueType.FLOAT_LIST),
-        Feature(name="fastrp_embedding", dtype=ValueType.FLOAT_LIST)
+        Feature(name="graphsage_embedding", dtype=ValueType.STRING),
+        Feature(name="fastrp_embedding", dtype=ValueType.STRING)
     ],
     online=True,
     batch_source=authors_source_view_postgres,
@@ -33,7 +33,7 @@ author_embedding_view_postgres = FeatureView(
 
 ######################### PAPER
 
-#creo le view da postgres
+""" #creo le view da postgres
 papers_source_view_postgres = PostgreSQLSource(
     query="SELECT * FROM \"Paper\"", 
     event_timestamp_column="event_timestamp",
@@ -41,7 +41,7 @@ papers_source_view_postgres = PostgreSQLSource(
 )
 
 # Define an entity for the auth
-index_entity_paper = Entity(name="index_paper", value_type=ValueType.STRING, description="paper id", join_key="id")
+index_entity_paper = Entity(name="index_paper", value_type=ValueType.STRING, description="paper id", join_key="id(n)")
 
 # postgres e redis usano le stesse identiche feature view
 paper_embedding_view_postgres = FeatureView(
@@ -58,3 +58,4 @@ paper_embedding_view_postgres = FeatureView(
     tags={}
 )
 
+ """
