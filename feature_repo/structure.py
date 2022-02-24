@@ -1,3 +1,4 @@
+from datetime import timedelta
 from os import path
 from google.protobuf.duration_pb2 import Duration
 from feast import Entity, Feature, FeatureView, ValueType
@@ -20,7 +21,7 @@ index_entity_auth = Entity(name="author_id_neo4j", value_type=ValueType.INT64, d
 author_embedding_view_postgres = FeatureView(
     name="authors_view",
     entities=["author_id_neo4j"],
-    ttl=Duration(seconds=8000 * 1),
+    ttl=timedelta(days=30),
     features=[
         Feature(name="name_author", dtype=ValueType.STRING),
         Feature(name="label_author", dtype=ValueType.FLOAT),
@@ -51,7 +52,7 @@ index_entity_paper = Entity(name="paper_id_neo4j", value_type=ValueType.INT64, d
 paper_embedding_view_postgres = FeatureView(
     name="papers_view",
     entities=["paper_id_neo4j"],
-    ttl=Duration(seconds=8000 * 1),
+    ttl=timedelta(days=30),
     features=[
         Feature(name="name_paper", dtype=ValueType.STRING),
         Feature(name="label_paper", dtype=ValueType.FLOAT),
@@ -75,20 +76,20 @@ conference_source_view_postgres = PostgreSQLSource(
 )
 
 # Define an entity for the conference
-index_entity_conf = Entity(name="Conference_id_neo4j", value_type=ValueType.INT64, description="conference id neo4j")
+index_entity_conf = Entity(name="conference_id_neo4j", value_type=ValueType.INT64, description="conference id neo4j")
 
 
 # postgres e redis usano le stesse identiche feature view
 conference_embedding_view_postgres = FeatureView(
     name="conference_view",
-    entities=["Conference_id_neo4j"],
-    ttl=Duration(seconds=8000 * 1),
+    entities=["conference_id_neo4j"],
+    ttl=timedelta(days=30),
     features=[
-        Feature(name="name_Conference", dtype=ValueType.STRING),
-        Feature(name="label_Conference", dtype=ValueType.FLOAT),
-        Feature(name="Conference_id_neo4j", dtype=ValueType.STRING),
-        Feature(name="graphsage_embedding_Conference", dtype=ValueType.FLOAT_LIST),
-        Feature(name="fastrp_embedding_Conference", dtype=ValueType.FLOAT_LIST)
+        Feature(name="name_conference", dtype=ValueType.STRING),
+        Feature(name="label_conference", dtype=ValueType.FLOAT),
+        Feature(name="conference_id_neo4j", dtype=ValueType.INT64),
+        Feature(name="graphsage_embedding_conference", dtype=ValueType.FLOAT_LIST),
+        Feature(name="fastrp_embedding_conference", dtype=ValueType.FLOAT_LIST)
     ],
     online=True,
     batch_source=conference_source_view_postgres,
@@ -106,20 +107,20 @@ term_source_view_postgres = PostgreSQLSource(
 )
 
 # Define an entity for the auth
-index_entity_term = Entity(name="Term_id_neo4j", value_type=ValueType.INT64, description="term id neo4j")
+index_entity_term = Entity(name="term_id_neo4j", value_type=ValueType.INT64, description="term id neo4j")
 
 
 # postgres e redis usano le stesse identiche feature view
 term_embedding_view_postgres = FeatureView(
     name="term_view",
-    entities=["Term_id_neo4j"],
-    ttl=Duration(seconds=8000 * 1),
+    entities=["term_id_neo4j"],
+    ttl=timedelta(days=30),
     features=[
-        Feature(name="name_Term", dtype=ValueType.STRING),
-        Feature(name="label_Term", dtype=ValueType.FLOAT),
-        Feature(name="Term_id_neo4j", dtype=ValueType.STRING),
-        Feature(name="graphsage_embedding_Term", dtype=ValueType.FLOAT_LIST),
-        Feature(name="fastrp_embedding_Term", dtype=ValueType.FLOAT_LIST)
+        Feature(name="name_term", dtype=ValueType.STRING),
+        Feature(name="label_term", dtype=ValueType.FLOAT),
+        Feature(name="term_id_neo4j", dtype=ValueType.INT64),
+        Feature(name="graphsage_embedding_term", dtype=ValueType.FLOAT_LIST),
+        Feature(name="fastrp_embedding_term", dtype=ValueType.FLOAT_LIST)
     ],
     online=True,
     batch_source=term_source_view_postgres,
@@ -141,7 +142,7 @@ PA_source_view_postgres = PostgreSQLSource(
 PA_embedding_view_postgres = FeatureView(
     name="pa_view",
     entities=["paper_id_neo4j", "author_id_neo4j"],
-    ttl=Duration(seconds=8000 * 1),
+    ttl=timedelta(days=30),                         # Duration(seconds=8000 * 1)
     features=[
         Feature(name="name_pa", dtype=ValueType.STRING),
         Feature(name="label(n)_pa", dtype=ValueType.STRING),
@@ -167,17 +168,15 @@ PC_source_view_postgres = PostgreSQLSource(
 
 # postgres e redis usano le stesse identiche feature view
 PC_embedding_view_postgres = FeatureView(
-    name="PC_view",
-    entities=["Paper_id_neo4j", "Conference_id_neo4j"],
-    ttl=Duration(seconds=8000 * 1),
+    name="pc_view",
+    entities=["paper_id_neo4j", "conference_id_neo4j"],
+    ttl=timedelta(days=30),
     features=[
-        Feature(name="PC_id_neo4j", dtype=ValueType.INT64),
+        Feature(name="pc_id_neo4j", dtype=ValueType.INT64),
         Feature(name="name_PC", dtype=ValueType.STRING),
-        Feature(name="Paper_id_neo4j_PC", dtype=ValueType.INT64),
-        Feature(name="Conference_id_neo4j_PC", dtype=ValueType.INT64),
-        Feature(name="label(n)_PC", dtype=ValueType.STRING),
-        Feature(name="label(m)_PC", dtype=ValueType.STRING),
-        Feature(name="label_n_PC", dtype=ValueType.FLOAT)
+        Feature(name="label(n)_pc", dtype=ValueType.STRING),
+        Feature(name="label(m)_pc", dtype=ValueType.STRING),
+        Feature(name="label_n_pc", dtype=ValueType.FLOAT)
     ],
     online=True,
     batch_source=PC_source_view_postgres,
@@ -197,17 +196,15 @@ PT_source_view_postgres = PostgreSQLSource(
 
 # postgres e redis usano le stesse identiche feature view
 PT_embedding_view_postgres = FeatureView(
-    name="PT_view",
-    entities=["Paper_id_neo4j", "Term_id_neo4j"],
-    ttl=Duration(seconds=8000 * 1),
+    name="pt_view",
+    entities=["paper_id_neo4j", "term_id_neo4j"],
+    ttl=timedelta(days=30),
     features=[
-        Feature(name="PT_id", dtype=ValueType.INT64),
-        Feature(name="name_PT", dtype=ValueType.STRING),
-        Feature(name="Paper_id_neo4j_PT", dtype=ValueType.INT64),
-        Feature(name="Term_id_neo4j_PT", dtype=ValueType.INT64),
-        Feature(name="label(n)_PT", dtype=ValueType.STRING),
-        Feature(name="label(m)_PT", dtype=ValueType.STRING),
-        Feature(name="label_n_PT", dtype=ValueType.FLOAT)
+        Feature(name="pt_id_neo4j", dtype=ValueType.INT64),
+        Feature(name="name_pt", dtype=ValueType.STRING),
+        Feature(name="label(n)_pt", dtype=ValueType.STRING),
+        Feature(name="label(m)_pt", dtype=ValueType.STRING),
+        Feature(name="label_n_pt", dtype=ValueType.FLOAT)
     ],
     online=True,
     batch_source=PT_source_view_postgres,

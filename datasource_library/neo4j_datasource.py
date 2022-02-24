@@ -1,8 +1,10 @@
+import string
 from feast_postgres import PostgreSQLOfflineStoreConfig
 from typing import Dict, List, Any
 from feast import FeatureStore
 import driver_neo4j 
 import pandas as pd
+import numpy as np
 import sqlalchemy
 import yaml
 
@@ -30,6 +32,18 @@ con = get_sqlalchemy_engine(offline_config)
 con.execute(f"CREATE SCHEMA IF NOT EXISTS {offline_config.db_schema}") # create the schema in Postgres DB if not present
 
 
+#mapping type of dataframe
+def map_type_python(df_input : pd.DataFrame):
+    dict_df = {}
+    for i,j in zip(df_input.columns, df_input.dtypes):
+        if "object" in str(j):
+            if isinstance(df_input[i][len(df_input.index)-1], list) and all(isinstance(e, (int, float)) for e in df_input[i][len(df_input.index)-1]) :
+                df_input[i] = df_input[i].astype('np.array')
+            elif isinstance(df_input[i][len(df_input.index)-1], str) :
+                dict_df.update({i: str})
+    return dict_df
+
+
 # Functions Neo4j
 
 def run_retrieve_neo4j_node(node_name : str) :
@@ -49,7 +63,16 @@ def run_retrieve_neo4j_node(node_name : str) :
     for col in df_res.columns :
         df_res.rename({col : f"{col}_{node_name}"}, axis=1, inplace=True)
     df_res[f"{node_name}_id_neo4j"] = df_id
-    print(df_res.head())
+    
+    # CASTA I TIPI AL MOMENTO DEL CARICAMENTO
+    """ dict_df_res = map_type_python(df_res)
+    print(dict_df_res)
+    for col in df_res.columns : 
+        if col in dict_df_res :
+            df_res.replace({col: dict_df_res[f"{col}"]})
+            print({col: dict_df_res[f"{col}"]})
+
+    print(df_res.dtypes) """
 
     return df_res
 
@@ -86,9 +109,8 @@ def run_retrieve_neo4j_relationship(relationship_name : str) :
 
 
 #mapping type of dataframe
-def map_type(df_input : pd.DataFrame):
+def map_type_postgres(df_input : pd.DataFrame):
     dict_df = {}
-    print(df_input.dtypes)
     for i,j in zip(df_input.columns, df_input.dtypes):
         if "object" in str(j):
             if isinstance(df_input[i][len(df_input.index)-1], list) and all(isinstance(e, (int, float)) for e in df_input[i][len(df_input.index)-1]) :
@@ -111,14 +133,12 @@ def run_create_offline_node(table_name : str, df_input : pd.DataFrame, if_exists
     :df_input: the dataframe the function save as table in Postgres.
     :if_exists: if "None" (as default), the function creates the table instead of replacing it with "replace".
     """
-    run_drop_offline_table(table_name)
 
     var_temp = pd.Timestamp.now()
     df_input["event_timestamp"] = var_temp
     df_input["created"] = var_temp
 
-    dict_type = map_type(df_input)
-
+    dict_type = map_type_postgres(df_input)
     df_input.columns= df_input.columns.str.lower()
 
     if if_exists == "replace" : 
@@ -135,7 +155,7 @@ def run_create_offline_node(table_name : str, df_input : pd.DataFrame, if_exists
 
 
 
-def run_create_offline_relationship(relationship_name : str, df_input : pd.DataFrame, if_exists : str = None):
+def run_create_offline_relationship(relationship_name : str, df_input : pd.DataFrame):
     """ 
     This function uses as input a DataFrame that will make up the Postgres table. 
     The user can decide if replace a table, in case it is already present, or creating it from scratch.
@@ -147,10 +167,8 @@ def run_create_offline_relationship(relationship_name : str, df_input : pd.DataF
     """
     run_drop_offline_table(relationship_name)
 
-    var_temp = pd.Timestamp.now()
-
-    n_start = f'{df_input["label(n)"].iloc[0]}_id_neo4j_{relationship_name}' 
-    n_end = f'{df_input["label(m)"].iloc[0]}_id_neo4j_{relationship_name}' 
+    n_start = f'{df_input["label(n)"].iloc[0]}_id_neo4j' 
+    n_end = f'{df_input["label(m)"].iloc[0]}_id_neo4j' 
 
     df_input.rename({"id" : f"{relationship_name}_id_neo4j"}, axis=1, inplace=True)
     df_input.rename({"start_node" : n_start}, axis=1, inplace=True)
@@ -158,54 +176,43 @@ def run_create_offline_relationship(relationship_name : str, df_input : pd.DataF
     for col in df_input.columns :
         if col != f"{relationship_name}_id_neo4j" and col != n_start and col != n_end:  
             df_input.rename({col : f"{col}_{relationship_name}"}, axis=1, inplace=True)
-    #controlla se esiste già timestamp
+
+    var_temp = pd.Timestamp.now()
     df_input["event_timestamp"] = var_temp
     df_input["created"] = var_temp
 
     df_input.columns= df_input.columns.str.lower()
 
-    print(df_input.columns)
-    print()
-
-    if if_exists == None :
-        # Spezzo orizzontalmente il dataframe, in modo da avere i pezzi con coppie di nodi dello stesso tipo sullo stesso pezzo.
-        # carico il pezzo in una tabella fittizia, inserisco le foreign key e la unisco (UNION) alla tabella principale.
-        df_labels = df_input[[f"label(n)_{relationship_name.lower()}", f"label(m)_{relationship_name.lower()}"]]
-        df_labels = df_labels.drop_duplicates()
-        flag = 0
-        for iter, row in df_labels.iterrows() : 
-            if(flag == 0) :
-                temp = df_input[(df_input[f"label(n)_{relationship_name.lower()}"] == row[f"label(n)_{relationship_name.lower()}"]) & (df_input[f"label(m)_{relationship_name.lower()}"] == row[f"label(m)_{relationship_name.lower()}"])]
-                temp.to_sql(f"{relationship_name}_temp", con, offline_config.db_schema, index=False, chunksize=500) 
-
-                con.execute(f"ALTER TABLE \"{relationship_name}_temp\" ADD CONSTRAINT \"costraint_fk_start\" FOREIGN KEY (\"{row[0]}_id_neo4j_{relationship_name.lower()}\") REFERENCES \"{row[0]}\"(\"{row[0].lower()}_id_neo4j\");")
-                con.execute(f"ALTER TABLE \"{relationship_name}_temp\" ADD CONSTRAINT \"costraint_fk_end\" FOREIGN KEY (\"{row[1]}_id_neo4j_{relationship_name.lower()}\") REFERENCES \"{row[1]}\"(\"{row[1].lower()}_id_neo4j\");")
-
-                flag+=1
-            else :
-                temp = df_input[(df_input[f"label(n)_{relationship_name.lower()}"] == row[f"label(n)_{relationship_name.lower()}"]) & (df_input[f"label(m)_{relationship_name.lower()}"] == row[f"label(m)_{relationship_name.lower()}"])]
-
-                temp.to_sql("temp", con, offline_config.db_schema, index=False, chunksize=500) 
-                con.execute(f"ALTER TABLE \"temp\" ADD CONSTRAINT \"costraint_fk_start\" FOREIGN KEY (\"{row[0]}_id_neo4j_{relationship_name.lower()}\") REFERENCES \"{row[0]}\"(\"{row[0].lower()}_id_neo4j\");")
-                con.execute(f"ALTER TABLE \"temp\" ADD CONSTRAINT \"costraint_fk_end\" FOREIGN KEY (\"{row[1]}_id_neo4j_{relationship_name.lower()}\") REFERENCES \"{row[1]}\"(\"{row[1].lower()}_id_neo4j\");")
-
-                con.execute(f"CREATE TABLE \"temp_table\" AS (SELECT * FROM \"{relationship_name}_temp\" UNION SELECT * FROM \"temp\");")
-                con.execute(f"DROP TABLE IF EXISTS \"{relationship_name}_temp\"")
-        
-        """
-        If df_input has only a row of labels, set the correct name deleting the "_temp" part, otherwise change the whole name of temp_table
-        """
-        if flag == 1 : 
-            con.execute(f"ALTER TABLE \"{relationship_name}_temp\" RENAME TO \"{relationship_name}\"")
+    # Spezzo orizzontalmente il dataframe, in modo da avere i pezzi con coppie di nodi dello stesso tipo sullo stesso pezzo.
+    # carico il pezzo in una tabella fittizia, inserisco le foreign key e la unisco (UNION) alla tabella principale.
+    df_labels = df_input[[f"label(n)_{relationship_name.lower()}", f"label(m)_{relationship_name.lower()}"]]
+    df_labels = df_labels.drop_duplicates()
+    flag = 0
+    for iter, row in df_labels.iterrows() : 
+        if(flag == 0) :
+            temp = df_input[(df_input[f"label(n)_{relationship_name.lower()}"] == row[f"label(n)_{relationship_name.lower()}"]) & (df_input[f"label(m)_{relationship_name.lower()}"] == row[f"label(m)_{relationship_name.lower()}"])]
+            temp.to_sql(f"{relationship_name}_temp", con, offline_config.db_schema, index=False, chunksize=500) 
+            con.execute(f"ALTER TABLE \"{relationship_name}_temp\" ADD CONSTRAINT \"costraint_fk_start\" FOREIGN KEY (\"{row[0].lower()}_id_neo4j\") REFERENCES \"{row[0]}\"(\"{row[0].lower()}_id_neo4j\");")
+            con.execute(f"ALTER TABLE \"{relationship_name}_temp\" ADD CONSTRAINT \"costraint_fk_end\" FOREIGN KEY (\"{row[1].lower()}_id_neo4j\") REFERENCES \"{row[1]}\"(\"{row[1].lower()}_id_neo4j\");")
+            flag+=1
         else :
-            con.execute(f"ALTER TABLE IF EXISTS \"temp_table\" RENAME TO \"{relationship_name}\"")
+            temp = df_input[(df_input[f"label(n)_{relationship_name.lower()}"] == row[f"label(n)_{relationship_name.lower()}"]) & (df_input[f"label(m)_{relationship_name.lower()}"] == row[f"label(m)_{relationship_name.lower()}"])]
 
-    elif if_exists == "replace" : 
-        df_input.to_sql(relationship_name, con, offline_config.db_schema, if_exists="replace", index=False, chunksize=500) 
-    
-    else : 
-        print(f"\"{if_exists}\" not allowed")
-        return
+            temp.to_sql("temp", con, offline_config.db_schema, index=False, chunksize=500) 
+            con.execute(f"ALTER TABLE \"temp\" ADD CONSTRAINT \"costraint_fk_start\" FOREIGN KEY (\"{row[0].lower()}_id_neo4j\") REFERENCES \"{row[0]}\"(\"{row[0].lower()}_id_neo4j\");")
+            con.execute(f"ALTER TABLE \"temp\" ADD CONSTRAINT \"costraint_fk_end\" FOREIGN KEY (\"{row[1].lower()}_id_neo4j\") REFERENCES \"{row[1]}\"(\"{row[1].lower()}_id_neo4j\");")
+
+            con.execute(f"CREATE TABLE \"temp_table\" AS (SELECT * FROM \"{relationship_name}_temp\" UNION SELECT * FROM \"temp\");")
+            con.execute(f"DROP TABLE IF EXISTS \"{relationship_name}_temp\"")
+        
+    """
+    If df_input has only a row of labels, set the correct name deleting the "_temp" part, otherwise change the whole name of temp_table
+    """
+    if flag == 1 : 
+        con.execute(f"ALTER TABLE \"{relationship_name}_temp\" RENAME TO \"{relationship_name}\"")
+    else :
+        con.execute(f"ALTER TABLE IF EXISTS \"temp_table\" RENAME TO \"{relationship_name}\"")
+
     con.execute(f"ALTER TABLE \"{relationship_name}\" ADD PRIMARY KEY (\"{relationship_name.lower()}_id_neo4j\");")
     con.execute(f"CREATE INDEX IF NOT EXISTS \"idx_timestamp\" ON \"{relationship_name}\"(\"event_timestamp\");")
     con.execute(f"CREATE INDEX IF NOT EXISTS \"idx_created\" ON \"{relationship_name}\"(\"created\");")
@@ -228,6 +235,8 @@ def run_store_data(table_name : str, df_input : pd.DataFrame, if_exists : str = 
     :table_name: the data destination table.
     :df_input: the DataFrame to store.
     """
+    dict_type = map_type_postgres(df_input)
+
     var_temp = pd.Timestamp.now()
     df_input["event_timestamp"] = var_temp
     df_input["created"] = var_temp
@@ -238,7 +247,7 @@ def run_store_data(table_name : str, df_input : pd.DataFrame, if_exists : str = 
         print("The table doesn't exists")
     #fare append e replace
 
-    df_input.to_sql(table_name, con, offline_config.db_schema, if_exists, index=False, dtype=map_type(df_input))
+    df_input.to_sql(table_name, con, offline_config.db_schema, if_exists, index=False, dtype=dict_type)
     print(f"Data stored in {table_name}")
 
 
@@ -297,14 +306,3 @@ def get_online_feature(feature_list : List[str], entity_rows : List[Dict[str, An
     print(model_df.head())
 
     return model_df
-
-
-def rinomina():
-    con.execute("ALTER TABLE \"PA\" RENAME \"Author_id_neo4j_PA\" TO \"Author_id_neo4j\"")
-    con.execute("ALTER TABLE \"PA\" RENAME \"Paper_id_neo4j_PA\" TO \"Paper_id_neo4j\"")
-
-    con.execute("ALTER TABLE \"PT\" RENAME \"Term_id_neo4j_PT\" TO \"Term_id_neo4j\"")
-    con.execute("ALTER TABLE \"PT\" RENAME \"Paper_id_neo4j_PT\" TO \"Paper_id_neo4j\"")
-
-    con.execute("ALTER TABLE \"PC\" RENAME \"Conference_id_neo4j_PC\" TO \"Conference_id_neo4j\"")
-    con.execute("ALTER TABLE \"PC\" RENAME \"Paper_id_neo4j_PC\" TO \"Paper_id_neo4j\"")

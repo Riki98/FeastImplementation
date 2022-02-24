@@ -11,7 +11,7 @@ print("The time of the run:", stop - start) """
 
 #neo4j_datasource.run_drop_offline_table("Author")
 
-neo4j_datasource.run_retrieve_neo4j_db()
+#neo4j_datasource.run_retrieve_neo4j_db()
 
 #neo4j_datasource.run_create_offline_table("Author", df_auth, "replace")
 #neo4j_datasource.run_store_data("Author", df_auth)
@@ -20,6 +20,7 @@ neo4j_datasource.run_retrieve_neo4j_db()
 #neo4j_datasource.run_create_offline_node("Author", df_auth)
 #neo4j_datasource.run_create_offline_table("Paper", df_auth, "replace")
 
+#neo4j_datasource.run_retrieve_neo4j_node("Author")
 
 #neo4j_datasource.rinomina()
 
