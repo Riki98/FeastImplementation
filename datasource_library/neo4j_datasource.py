@@ -123,7 +123,7 @@ def map_type_postgres(df_input : pd.DataFrame):
 
 # Managing data - offline store
 
-def run_create_offline_node(table_name : str, df_input : pd.DataFrame, if_exists : str = None):
+def run_create_offline_node_table(table_name : str, df_input : pd.DataFrame, if_exists : str = None):
     """ 
     This function uses as input a DataFrame that will make up the Postgres table. 
     The user can decide if replace a table, in case it is already present, or creating it from scratch.
@@ -186,10 +186,14 @@ def run_create_offline_relationship(relationship_name : str, df_input : pd.DataF
     # Spezzo orizzontalmente il dataframe, in modo da avere i pezzi con coppie di nodi dello stesso tipo sullo stesso pezzo.
     # carico il pezzo in una tabella fittizia, inserisco le foreign key e la unisco (UNION) alla tabella principale.
     df_labels = df_input[[f"label(n)_{relationship_name.lower()}", f"label(m)_{relationship_name.lower()}"]]
-    df_labels = df_labels.drop_duplicates()
+    df_labels = (df_labels.drop_duplicates()).iterrows()
     flag = 0
-    for iter, row in df_labels.iterrows() : 
+    src_node = ""
+    dst_node = ""
+    for iter, row in df_labels : 
         if(flag == 0) :
+            src_node = f"{row[0].lower()}_id_neo4j"
+            dst_node = f"{row[1].lower()}_id_neo4j"
             temp = df_input[(df_input[f"label(n)_{relationship_name.lower()}"] == row[f"label(n)_{relationship_name.lower()}"]) & (df_input[f"label(m)_{relationship_name.lower()}"] == row[f"label(m)_{relationship_name.lower()}"])]
             temp.to_sql(f"{relationship_name}_temp", con, offline_config.db_schema, index=False, chunksize=500) 
             con.execute(f"ALTER TABLE \"{relationship_name}_temp\" ADD CONSTRAINT \"costraint_fk_start\" FOREIGN KEY (\"{row[0].lower()}_id_neo4j\") REFERENCES \"{row[0]}\"(\"{row[0].lower()}_id_neo4j\");")
@@ -216,6 +220,7 @@ def run_create_offline_relationship(relationship_name : str, df_input : pd.DataF
     con.execute(f"ALTER TABLE \"{relationship_name}\" ADD PRIMARY KEY (\"{relationship_name.lower()}_id_neo4j\");")
     con.execute(f"CREATE INDEX IF NOT EXISTS \"idx_timestamp\" ON \"{relationship_name}\"(\"event_timestamp\");")
     con.execute(f"CREATE INDEX IF NOT EXISTS \"idx_created\" ON \"{relationship_name}\"(\"created\");")
+    con.execute(f"CREATE INDEX IF NOT EXISTS \"{relationship_name}_triplet_idx\" ON \"{relationship_name}\"(\"{src_node}\", \"{dst_node}\", \"event_timestamp\");")
     
 
 def run_drop_offline_table(table_name : str):
@@ -259,7 +264,7 @@ def run_retrieve_neo4j_db() :
     :node_name: the name of the nodes we want retrieve.
     """
 
-    # lista nodi
+    """ # lista nodi
     query_all_nodes = "MATCH (n) RETURN distinct labels(n)"
     nodes_res = driver_neo4j.run_transaction_query(query_all_nodes, run_query=driver_neo4j.run_query_return_data)
     temp_list = [x["labels(n)"] for x in nodes_res["data"]]
@@ -271,7 +276,7 @@ def run_retrieve_neo4j_db() :
     # caricamento nodi
     for node in node_list:
         node_table = run_retrieve_neo4j_node(node)
-        run_create_offline_node(node, node_table)
+        run_create_offline_node_table(node, node_table) """
 
 
     # lista relazioni

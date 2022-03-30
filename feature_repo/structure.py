@@ -19,7 +19,7 @@ index_entity_auth = Entity(name="author_id_neo4j", value_type=ValueType.INT64, d
 
 # postgres e redis usano le stesse identiche feature view
 author_embedding_view_postgres = FeatureView(
-    name="authors_view",
+    name="author_view",
     entities=["author_id_neo4j"],
     ttl=timedelta(days=30),
     features=[
@@ -50,7 +50,7 @@ index_entity_paper = Entity(name="paper_id_neo4j", value_type=ValueType.INT64, d
 
 # postgres e redis usano le stesse identiche feature view
 paper_embedding_view_postgres = FeatureView(
-    name="papers_view",
+    name="paper_view",
     entities=["paper_id_neo4j"],
     ttl=timedelta(days=30),
     features=[
