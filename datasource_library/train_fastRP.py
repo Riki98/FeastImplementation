@@ -1,32 +1,17 @@
+import os
 import dgl
-import numpy as np
 import torch
-from feast import FeatureStore
-import dgl.data
-from sklearn.model_selection import train_test_split
-import pandas as pd
 import time
-from driver_neo4j import run_query_return_data
+import dgl.data
+import numpy as np
 import driver_neo4j
+import pandas as pd
+from datetime import datetime
+from feast import FeatureStore
 from rgcn_gnn import HeteroRGCN
 import torch.nn.functional as F
-import os
-
-def str_to_float_list(l) :
-    tot_list = []
-    for i in range(0, len(l)) : 
-        s = l[i]
-        f_list = []
-        temp = ""
-        for j in range(0, len(s)) :
-            if s[j] != "{" and s[j] != "}" and s[j] != ",":
-                temp = temp + s[j]
-            if s[j] == "," or s[j] == "}":
-                f_list.append(float(temp))
-                temp = ""
-        f_list = np.array(f_list)
-        tot_list.append(f_list)
-    return tot_list
+from driver_neo4j import run_query_return_data
+from sklearn.model_selection import train_test_split
 
 
 def dict_col(df_input : pd.DataFrame) : 
@@ -53,14 +38,8 @@ store = FeatureStore(repo_path="./feature_repo")
 
 #################################################################################################################################################################
 
-dict_pa = dict_col(pa_df)
-dict_pc = dict_col(pc_df)
-dict_pt = dict_col(pt_df)
-
-# Rinomino le colonne dei dataframe
-pa_df.rename(dict_pa, axis=1, inplace=True)
-pc_df.rename(dict_pc, axis=1, inplace=True)
-pt_df.rename(dict_pt, axis=1, inplace=True)
+os.system(f"cd .\\feature_repo\\ && feast teardown")
+os.system(f"cd .\\feature_repo\\ && feast apply")
 
 #################################################################################################################################################################
 
@@ -133,8 +112,7 @@ for label in graph.ntypes:
 
     label_embedding_df = label_embedding_df.set_index(label.lower()+'_id_neo4j').reindex(neo4j_label_ids_number)
     # label_embedding_df.to_pickle(f"{label.lower()}_fastrp.pkl")
-
-    graph.nodes[label].data['embedding'] = torch.FloatTensor(np.stack(str_to_float_list(label_embedding_df[f'fastrp_embedding_{label.lower()}'].values), axis=0))
+    graph.nodes[label].data['embedding'] = torch.FloatTensor(np.stack(label_embedding_df[f'fastrp_embedding_{label.lower()}'].values, axis=0))
 
 
 query = f"MATCH(p:Paper) RETURN Id(p) as id, p.label as label"
@@ -155,7 +133,6 @@ train = [node_labels_map_neo4j_dgl['Paper'][x] for x in train_neo4j]
 val = [node_labels_map_neo4j_dgl['Paper'][x] for x in val_neo4j]
 test =  [node_labels_map_neo4j_dgl['Paper'][x] for x in test_neo4j]
 
-print(train_labels)
 train_labels = torch.LongTensor(train_labels)
 val_labels = torch.LongTensor(val_labels)
 test_labels = torch.LongTensor(test_labels)
@@ -165,8 +142,8 @@ test_labels = torch.LongTensor(test_labels)
 model = HeteroRGCN(graph, 256, 64, 4)
 opt = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
 
-best_val_acc_graphsage = 0
-best_modle_dict_graphsage = None
+best_val_acc_fastrp = 0
+best_modle_dict_fastrp = None
 
 for epoch in range(100):
     logits = model(graph)
@@ -177,9 +154,9 @@ for epoch in range(100):
     train_acc = (pred[train] == train_labels).float().mean()
     val_acc = (pred[val] == val_labels).float().mean()
 
-    if best_val_acc_graphsage < val_acc:
-        best_val_acc_graphsage = val_acc
-        best_modle_dict_graphsage = model.state_dict()
+    if best_val_acc_fastrp < val_acc:
+        best_val_acc_fastrp = val_acc
+        best_modle_dict_fastrp = model.state_dict()
 
     opt.zero_grad()
     loss.backward()
@@ -190,37 +167,49 @@ for epoch in range(100):
             loss.item(),
             train_acc.item(),
             val_acc.item(),
-            best_val_acc_graphsage.item()
+            best_val_acc_fastrp.item()
         ))
 
+################################ MATERIALIZZO
 
-################################ MATERIALIZZAZIONE DELLE MIGLIORI FEATURES
 
 best_features_views = []
 for label in graph.ntypes:
     best_features_views.append(f"{label.lower()}_view")
 
-print(best_features_views)
-
-# author_view, conference_view, paper_view, term_view
+os.system(f"cd .\\feature_repo\\ && feast materialize-incremental -v {' -v '.join(best_features_views)} {datetime.now().isoformat()}")
 
 
+################################ RECUPERO LE FEATURE MATERIALIZZATE
 
+for label in graph.ntypes:
+    #entity_rows – A list of dictionaries where each key-value is an entity-name, entity-value pair.
+    neo4j_label_ids_number = [ node_labels_map_dgl_neo4j[label][x] for x in graph.nodes(label).numpy()]
+    neo4j_label_ids_dict = [ {label.lower()+'_id_neo4j': x} for x in neo4j_label_ids_number]
+    
+    label_embedding_df = store.get_online_features(
+        entity_rows=neo4j_label_ids_dict,
+        features=[
+            f"{label.lower()}_view:fastrp_embedding_{label.lower()}"
+        ]
+    ).to_df()
 
+    label_embedding_df = label_embedding_df.set_index(label.lower()+'_id_neo4j').reindex(neo4j_label_ids_number)
+    graph.nodes[label].data['embedding'] = torch.FloatTensor(np.stack(label_embedding_df[f'fastrp_embedding_{label.lower()}'].values, axis=0))
+    
 
+model = HeteroRGCN(graph, 256, 64, 4)
+model.load_state_dict(best_modle_dict_fastrp)
+model.eval()
 
+test_acc = 0
 
-
-
-
-
-
-
-
-
-
-
-
+logits = model(graph)
+pred = logits.argmax(1)
+test_acc = (pred[test] == test_labels).float().mean()
+print( 'Best %.4f' % (
+    test_acc
+))
 
 
 stop = time.time()

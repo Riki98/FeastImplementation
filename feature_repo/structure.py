@@ -116,8 +116,6 @@ term_embedding_view_postgres = FeatureView(
     entities=["term_id_neo4j"],
     ttl=timedelta(days=30),
     features=[
-        Feature(name="name_term", dtype=ValueType.STRING),
-        Feature(name="label_term", dtype=ValueType.FLOAT),
         Feature(name="term_id_neo4j", dtype=ValueType.INT64),
         Feature(name="graphsage_embedding_term", dtype=ValueType.FLOAT_LIST),
         Feature(name="fastrp_embedding_term", dtype=ValueType.FLOAT_LIST)

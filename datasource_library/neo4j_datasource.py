@@ -2,6 +2,8 @@ import string
 from feast_postgres import PostgreSQLOfflineStoreConfig
 from typing import Dict, List, Any
 from feast import FeatureStore
+from matplotlib.pyplot import table
+from sqlalchemy.types import ARRAY
 import driver_neo4j 
 import pandas as pd
 import numpy as np
@@ -62,17 +64,9 @@ def run_retrieve_neo4j_node(node_name : str) :
     df_id = pd.DataFrame.from_dict(id_query)
     for col in df_res.columns :
         df_res.rename({col : f"{col}_{node_name}"}, axis=1, inplace=True)
+        if isinstance(df_res[f"{col}_{node_name}"], list) : 
+            df_res[f"{col}_{node_name}"] = np.array(df_res[f"{col}_{node_name}"])
     df_res[f"{node_name}_id_neo4j"] = df_id
-    
-    # CASTA I TIPI AL MOMENTO DEL CARICAMENTO
-    """ dict_df_res = map_type_python(df_res)
-    print(dict_df_res)
-    for col in df_res.columns : 
-        if col in dict_df_res :
-            df_res.replace({col: dict_df_res[f"{col}"]})
-            print({col: dict_df_res[f"{col}"]})
-
-    print(df_res.dtypes) """
 
     return df_res
 
@@ -104,6 +98,9 @@ def run_retrieve_neo4j_relationship(relationship_name : str) :
         temp = pd.DataFrame([data_list])
         relationship_df = relationship_df.append(temp)
 
+    for col in relationship_df :
+        if isinstance(relationship_df[col], list) : 
+            relationship_df[col] = np.array(relationship_df[col])
     return relationship_df
 
 
@@ -134,9 +131,12 @@ def run_create_offline_node_table(table_name : str, df_input : pd.DataFrame, if_
     :if_exists: if "None" (as default), the function creates the table instead of replacing it with "replace".
     """
 
+    run_drop_offline_table(table_name)
+
     var_temp = pd.Timestamp.now()
     df_input["event_timestamp"] = var_temp
     df_input["created"] = var_temp
+    src_node = f""
 
     dict_type = map_type_postgres(df_input)
     df_input.columns= df_input.columns.str.lower()
@@ -144,13 +144,22 @@ def run_create_offline_node_table(table_name : str, df_input : pd.DataFrame, if_
     if if_exists == "replace" : 
         df_input.to_sql(table_name, con, offline_config.db_schema, if_exists="replace", index=False, chunksize=500, dtype=dict_type)
     elif if_exists == None :
-        df_input.to_sql(table_name, con, offline_config.db_schema, index=False, chunksize=500, dtype=dict_type) 
+        df_input.to_sql(table_name, con, offline_config.db_schema, index=False, chunksize=500, dtype=dict_type)
     else : 
         print(f"\"{if_exists}\" not allowed. Did you mean \"replace\"?")
+        return
 
+    for col in df_input.columns : 
+        if isinstance(df_input[col][len(df_input.index)-1], list) and all(isinstance(e, (int, float)) for e in df_input[col][len(df_input.index)-1]): 
+            con.execute(f"alter table \"{table_name}\" alter column {col} type double precision[] using cast({col} as double precision[]);")
+        if not src_node and ("_id_neo4j" in col) : 
+            src_node = col
+    
     con.execute(f"ALTER TABLE \"{table_name}\" ADD PRIMARY KEY (\"{table_name.lower()}_id_neo4j\");")
     con.execute(f"CREATE INDEX IF NOT EXISTS \"idx_timestamp\" ON \"{table_name}\"(\"event_timestamp\");")
     con.execute(f"CREATE INDEX IF NOT EXISTS \"idx_created\" ON \"{table_name}\"(\"created\");")
+    con.execute(f"CREATE INDEX IF NOT EXISTS \"{table_name}_idx\" ON \"{table_name}\"(\"{src_node}\", \"event_timestamp\");")
+    
     print(f"{table_name} created")
 
 
@@ -221,6 +230,10 @@ def run_create_offline_relationship(relationship_name : str, df_input : pd.DataF
     con.execute(f"CREATE INDEX IF NOT EXISTS \"idx_timestamp\" ON \"{relationship_name}\"(\"event_timestamp\");")
     con.execute(f"CREATE INDEX IF NOT EXISTS \"idx_created\" ON \"{relationship_name}\"(\"created\");")
     con.execute(f"CREATE INDEX IF NOT EXISTS \"{relationship_name}_triplet_idx\" ON \"{relationship_name}\"(\"{src_node}\", \"{dst_node}\", \"event_timestamp\");")
+    for col in df_input.columns : 
+        if isinstance(df_input[col].iloc[len(df_input.index)-1], list) and all(isinstance(e, (int, float)) for e in df_input[col][len(df_input.index)-1]): 
+            con.execute(f"alter table \"{relationship_name}\" alter column {col} type double precision[] using cast({col} as double precision[]);")
+    
     
 
 def run_drop_offline_table(table_name : str):
@@ -264,7 +277,7 @@ def run_retrieve_neo4j_db() :
     :node_name: the name of the nodes we want retrieve.
     """
 
-    """ # lista nodi
+    # lista nodi
     query_all_nodes = "MATCH (n) RETURN distinct labels(n)"
     nodes_res = driver_neo4j.run_transaction_query(query_all_nodes, run_query=driver_neo4j.run_query_return_data)
     temp_list = [x["labels(n)"] for x in nodes_res["data"]]
@@ -276,7 +289,7 @@ def run_retrieve_neo4j_db() :
     # caricamento nodi
     for node in node_list:
         node_table = run_retrieve_neo4j_node(node)
-        run_create_offline_node_table(node, node_table) """
+        run_create_offline_node_table(node, node_table)
 
 
     # lista relazioni
@@ -288,26 +301,3 @@ def run_retrieve_neo4j_db() :
     for rel in relationship_list :
         relationship_df = run_retrieve_neo4j_relationship(rel)
         run_create_offline_relationship(rel, relationship_df)
-
-
-# Retrieve from offline store
-
-def get_online_feature(feature_list : List[str], entity_rows : List[Dict[str, Any]]):
-    
-    store = FeatureStore(repo_path="./feature_repo")
-    
-    print(feature_list)
-
-    model_df = store.get_online_features(
-        features=feature_list,
-        entity_rows=entity_rows
-    ).to_df()
-
-    print("----- Feature schema -----\n")
-    print(model_df.info())
-
-    print()
-    print("----- Example features -----\n")
-    print(model_df.head())
-
-    return model_df
