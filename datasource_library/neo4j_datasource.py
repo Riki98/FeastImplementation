@@ -1,9 +1,4 @@
-import string
 from feast_postgres import PostgreSQLOfflineStoreConfig
-from typing import Dict, List, Any
-from feast import FeatureStore
-from matplotlib.pyplot import table
-from sqlalchemy.types import ARRAY
 import driver_neo4j 
 import pandas as pd
 import numpy as np

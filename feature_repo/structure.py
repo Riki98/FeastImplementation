@@ -6,7 +6,7 @@ from feast_postgres import PostgreSQLSource
 
 ################################################## AUTHOR  
 
-#creo le view da postgres
+# Source view for querying author table
 authors_source_view_postgres = PostgreSQLSource(
     query="SELECT * FROM \"Author\"", 
     event_timestamp_column="event_timestamp",
@@ -17,7 +17,7 @@ authors_source_view_postgres = PostgreSQLSource(
 index_entity_auth = Entity(name="author_id_neo4j", value_type=ValueType.INT64, description="author id neo4j")
 
 
-# postgres e redis usano le stesse identiche feature view
+# Defining feature view for querying paper table
 author_embedding_view_postgres = FeatureView(
     name="author_view",
     entities=["author_id_neo4j"],
@@ -37,7 +37,7 @@ author_embedding_view_postgres = FeatureView(
 
 ################################################## PAPER
 
-#creo le view da postgres
+# Source view for querying paper table
 papers_source_view_postgres = PostgreSQLSource(
     query="SELECT * FROM \"Paper\"", 
     event_timestamp_column="event_timestamp",
@@ -48,7 +48,7 @@ papers_source_view_postgres = PostgreSQLSource(
 index_entity_paper = Entity(name="paper_id_neo4j", value_type=ValueType.INT64, description="paper id neo4j")
 
 
-# postgres e redis usano le stesse identiche feature view
+# Defining feature view for querying paper table
 paper_embedding_view_postgres = FeatureView(
     name="paper_view",
     entities=["paper_id_neo4j"],
@@ -68,7 +68,7 @@ paper_embedding_view_postgres = FeatureView(
 
 ################################################## CONFERENCE
 
-#creo le view da postgres
+# Source view for querying conference table
 conference_source_view_postgres = PostgreSQLSource(
     query="SELECT * FROM \"Conference\"", 
     event_timestamp_column="event_timestamp",
@@ -79,7 +79,7 @@ conference_source_view_postgres = PostgreSQLSource(
 index_entity_conf = Entity(name="conference_id_neo4j", value_type=ValueType.INT64, description="conference id neo4j")
 
 
-# postgres e redis usano le stesse identiche feature view
+# Defining feature view for querying paper table
 conference_embedding_view_postgres = FeatureView(
     name="conference_view",
     entities=["conference_id_neo4j"],
@@ -99,7 +99,7 @@ conference_embedding_view_postgres = FeatureView(
 
 ################################################## TERM
 
-#creo le view da postgres
+# Source view for querying term table
 term_source_view_postgres = PostgreSQLSource(
     query="SELECT * FROM \"Term\"", 
     event_timestamp_column="event_timestamp",
@@ -110,7 +110,7 @@ term_source_view_postgres = PostgreSQLSource(
 index_entity_term = Entity(name="term_id_neo4j", value_type=ValueType.INT64, description="term id neo4j")
 
 
-# postgres e redis usano le stesse identiche feature view
+# Defining feature view for querying paper table
 term_embedding_view_postgres = FeatureView(
     name="term_view",
     entities=["term_id_neo4j"],
@@ -128,7 +128,7 @@ term_embedding_view_postgres = FeatureView(
 
 ################################################## PA
 
-#creo le view da postgres
+# Source view for querying pa table
 PA_source_view_postgres = PostgreSQLSource(
     query="SELECT * FROM \"PA\"", 
     event_timestamp_column="event_timestamp",
@@ -136,11 +136,11 @@ PA_source_view_postgres = PostgreSQLSource(
 )
 
 
-# postgres e redis usano le stesse identiche feature view
+# Defining feature view for querying paper table
 PA_embedding_view_postgres = FeatureView(
     name="pa_view",
     entities=["paper_id_neo4j", "author_id_neo4j"],
-    ttl=timedelta(days=30),                         # Duration(seconds=8000 * 1)
+    ttl=timedelta(days=30),
     features=[
         Feature(name="name_pa", dtype=ValueType.STRING),
         Feature(name="label(n)_pa", dtype=ValueType.STRING),
@@ -156,7 +156,7 @@ PA_embedding_view_postgres = FeatureView(
 
 ################################################## PC
 
-#creo le view da postgres
+# Source view for querying pc table
 PC_source_view_postgres = PostgreSQLSource(
     query="SELECT * FROM \"PC\"", 
     event_timestamp_column="event_timestamp",
@@ -164,7 +164,7 @@ PC_source_view_postgres = PostgreSQLSource(
 )
 
 
-# postgres e redis usano le stesse identiche feature view
+# Defining feature view for querying paper table
 PC_embedding_view_postgres = FeatureView(
     name="pc_view",
     entities=["paper_id_neo4j", "conference_id_neo4j"],
@@ -184,7 +184,7 @@ PC_embedding_view_postgres = FeatureView(
 
 ################################################## PT
 
-#creo le view da postgres
+# Source view for querying pt table
 PT_source_view_postgres = PostgreSQLSource(
     query="SELECT * FROM \"PT\"", 
     event_timestamp_column="event_timestamp",
@@ -192,7 +192,7 @@ PT_source_view_postgres = PostgreSQLSource(
 )
 
 
-# postgres e redis usano le stesse identiche feature view
+# Defining feature view for querying paper table
 PT_embedding_view_postgres = FeatureView(
     name="pt_view",
     entities=["paper_id_neo4j", "term_id_neo4j"],

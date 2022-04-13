@@ -1,16 +1,11 @@
 from feast import FeatureStore
-import numpy as np
+import neo4j_datasource
 import pandas as pd
-import time
-
-start = time.time()
-
 
 # Inserisco i dati da neo4j a postgres
 
-# neo4j_datasource.run_retrieve_neo4j_db()
+neo4j_datasource.run_retrieve_neo4j_db()
 
-print("DB creato")
 
 ####################################################################################################################
 
@@ -79,11 +74,6 @@ pt_df = store.get_historical_features(
     full_feature_names=True
 ).to_df()
 
-
-pa_df.to_pickle("pa_df.pkl")
-pc_df.to_pickle("pc_df.pkl")
-pt_df.to_pickle("pt_df.pkl")
-
 ################################ DATA MANIPULATION
 
 def dict_col(df_input : pd.DataFrame) : 
@@ -106,12 +96,3 @@ dict_pt = dict_col(pt_df)
 pa_df.rename(dict_pa, axis=1, inplace=True)
 pc_df.rename(dict_pc, axis=1, inplace=True)
 pt_df.rename(dict_pt, axis=1, inplace=True)
-
-
-######## SAVING DATAS
-pa_df.to_pickle("pa_df.pkl")
-pc_df.to_pickle("pc_df.pkl")
-pt_df.to_pickle("pt_df.pkl")
-
-stop = time. time()
-print("The time of the run:", stop - start)

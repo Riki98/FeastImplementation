@@ -1,11 +1,11 @@
 import os
 import dgl
 import torch
-import time
 import dgl.data
 import numpy as np
 import driver_neo4j
 import pandas as pd
+import data_retrieve
 from datetime import datetime
 from feast import FeatureStore
 from rgcn_gnn import HeteroRGCN
@@ -25,24 +25,22 @@ def dict_col(df_input : pd.DataFrame) :
             dict_col.update({col: col})
     return dict_col
 
-
-
-start = time.time()
-
 ################################################################# RECUPERO DATAFRAME RELAZIONI ####################################################################
-pa_df = pd.read_pickle("pa_df.pkl")
-pc_df = pd.read_pickle("pc_df.pkl")
-pt_df = pd.read_pickle("pt_df.pkl")
+# gets the dataframe from data_retrieve file. Change at discretion  
+pa_df = data_retrieve.pa_df
+pc_df = data_retrieve.pc_df
+pt_df = data_retrieve.pt_df
 
 store = FeatureStore(repo_path="./feature_repo")
 
 #################################################################################################################################################################
-
+# Tearing down any previous structure and building up another one
 os.system(f"cd .\\feature_repo\\ && feast teardown")
 os.system(f"cd .\\feature_repo\\ && feast apply")
 
 #################################################################################################################################################################
 
+# Mapping every node id (from neo4j) to an increasing index (because dgl creates n nodes where n = max(node_id), even if the effective number of nodes are lower the the highest node_id)
 relationships = {}
 node_labels_map_neo4j_dgl = {}
 node_labels_counter = {}
@@ -92,11 +90,8 @@ map_id(pt_df, ('Paper','PT','Term'))
 
 node_labels_map_dgl_neo4j =  {k: {v1: k1 for k1, v1 in v.items()} for k,v in node_labels_map_neo4j_dgl.items()}
 graph = dgl.heterograph(relationships)
-print(graph)
 
-# Assegno le feature ai nodi
-# embeddings
-# PROBLEMA: prendo gli embeddings dalla relazione, non va bene
+# Assign features to nodes
 
 for label in graph.ntypes:
     
@@ -111,7 +106,6 @@ for label in graph.ntypes:
     ).to_df()
 
     label_embedding_df = label_embedding_df.set_index(label.lower()+'_id_neo4j').reindex(neo4j_label_ids_number)
-    # label_embedding_df.to_pickle(f"{label.lower()}_graphsage.pkl")
     graph.nodes[label].data['embedding'] = torch.FloatTensor(np.stack(label_embedding_df[f'graphsage_embedding_{label.lower()}'].values, axis=0))
 
 
@@ -137,7 +131,7 @@ train_labels = torch.LongTensor(train_labels)
 val_labels = torch.LongTensor(val_labels)
 test_labels = torch.LongTensor(test_labels)
 
-################ ALLENO IL MODELLO CON graphsage
+################ Model training with graphsage
 
 model = HeteroRGCN(graph, 256, 64, 4)
 opt = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
@@ -170,8 +164,7 @@ for epoch in range(100):
             best_val_acc_graphsage.item()
         ))
 
-################################ MATERIALIZZO
-
+# Materializing the best model into redis
 best_features_views = []
 for label in graph.ntypes:
     best_features_views.append(f"{label.lower()}_view")
@@ -179,10 +172,9 @@ for label in graph.ntypes:
 os.system(f"cd .\\feature_repo\\ && feast materialize-incremental -v {' -v '.join(best_features_views)} {datetime.now().isoformat()}")
 
 
-################################ RECUPERO LE FEATURE MATERIALIZZATE
-
+# Retrieve the online features
 for label in graph.ntypes:
-    #entity_rows – A list of dictionaries where each key-value is an entity-name, entity-value pair.
+    # Getting back the original id from the dgl nodes id
     neo4j_label_ids_number = [ node_labels_map_dgl_neo4j[label][x] for x in graph.nodes(label).numpy()]
     neo4j_label_ids_dict = [ {label.lower()+'_id_neo4j': x} for x in neo4j_label_ids_number]
     
@@ -196,7 +188,7 @@ for label in graph.ntypes:
     label_embedding_df = label_embedding_df.set_index(label.lower()+'_id_neo4j').reindex(neo4j_label_ids_number)
     graph.nodes[label].data['embedding'] = torch.FloatTensor(np.stack(label_embedding_df[f'graphsage_embedding_{label.lower()}'].values, axis=0))
     
-
+# Model production
 model = HeteroRGCN(graph, 256, 64, 4)
 model.load_state_dict(best_modle_dict_graphsage)
 model.eval()
@@ -209,7 +201,3 @@ test_acc = (pred[test] == test_labels).float().mean()
 print( 'Best %.4f' % (
     test_acc
 ))
-
-
-stop = time.time()
-print("The time to create the graph:", stop - start)
